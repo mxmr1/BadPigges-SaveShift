@@ -1,19 +1,33 @@
 plugins {
     id 'java'
+    id 'application'      // 必须添加，否则 application 闭包会报错
+    id 'com.gradleup.shadow' version '8.3.5'   // 最新稳定版
 }
 
-group = 'org.example'
-version = '1.0-SNAPSHOT'
+group = 'com.Main'
+version = '1.0.0'
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
+    // 在这里添加你的项目依赖
+    // 示例：implementation 'com.google.guava:guava:33.3.0-jre'
 }
 
-test {
-    useJUnitPlatform()
+application {
+    // 务必替换成你自己的主类全限定名
+    mainClass = 'Main'
+}
+
+// shadowJar 配置（可选，但建议保留）
+shadowJar {
+    archiveBaseName.set('BadPigges-SaveShift')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    // 若主类 Manifest 未自动生成，可显式指定
+    manifest {
+        attributes 'Main-Class': application.mainClass
+    }
 }
