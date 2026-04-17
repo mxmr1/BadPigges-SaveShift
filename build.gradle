@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'application'      // 必须添加，否则 application 闭包会报错
     id 'com.gradleup.shadow' version '8.3.5'   // 最新稳定版
+    id 'org.beryx.runtime' version '1.13.1'
 }
 
 group = 'com.Main'
@@ -19,6 +20,20 @@ dependencies {
 application {
     // 务必替换成你自己的主类全限定名
     mainClass = 'Main'
+}
+
+// Badass Runtime 插件配置
+runtime {
+    // 传递给 jlink 的选项，用于精简 JRE 镜像
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+    // 明确指定你的应用需要的 JDK 模块，有助于进一步减小体积
+    modules = ['java.naming', 'java.xml'] // 根据需要添加，如 'java.desktop'
+}
+
+// 告诉 runtime 插件使用 shadowJar 的输出
+// 这样生成的运行时镜像将包含你的 Fat JAR
+tasks.runtime {
+    dependsOn(tasks.shadowJar)
 }
 
 // shadowJar 配置（可选，但建议保留）
