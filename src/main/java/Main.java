@@ -207,7 +207,7 @@ public class Main {
             try {
                 @SuppressWarnings("unchecked")
                 List<File> files = (List<File>) t.getTransferData(DataFlavor.javaFileListFlavor);
-                if (files == null || files.isEmpty()) {
+                if (files.isEmpty()) {
                     return false;
                 }
                 // 只取第一个文件

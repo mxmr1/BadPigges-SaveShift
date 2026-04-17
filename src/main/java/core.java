@@ -113,7 +113,7 @@ public class core {
 
     public core(String inputFile) {
     System.out.println(inputFile);
-    main(inputFile);
+    makeshift(inputFile);
     }
 
     // 判断是否需要特殊朝向转换
@@ -227,7 +227,7 @@ public class core {
         System.out.println("备份成功: " + dest);
     }
 
-    public static void main(String inputFile) {
+    public static void makeshift(String inputFile) {
         //String inputFile = "C:\\Users\\mx__mr\\AppData\\LocalLow\\Rovio\\新创Unity 科技版\\contraptionsB\\Level_Sandbox_06_1";
         String outputFile = "output_final.txt";
 
