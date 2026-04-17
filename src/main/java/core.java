@@ -111,7 +111,7 @@ public class core {
         System.out.println("处理完成！结果已保存至 " + outputPath);
     }
 
-    public core(String inputFile) throws IOException {
+    public core(String inputFile) {
     System.out.println(inputFile);
     main(inputFile);
     }
@@ -120,8 +120,7 @@ public class core {
     private static boolean needsSpecialConversion(Part p) {
         if (SPECIAL_IDS.contains(p.id)) return true;
         if (p.id == 46 && (p.skin == 0 || p.skin == 1)) return true;
-        if (p.id == 47 && SPECIAL_SKINS_FOR_ID47.contains(p.skin)) return true;
-        return false;
+        return p.id == 47 && SPECIAL_SKINS_FOR_ID47.contains(p.skin);
     }
 
     // 判断是否需要跳过朝向转换
@@ -131,8 +130,7 @@ public class core {
         if (SKIP_IDS.contains(p.id)) return true;
         if (p.id == 47 && SKIP_SKINS_FOR_ID47.contains(p.skin)) return true;
         // 额外条件: id=44, skin 4~6
-        if (p.id == 44 && p.skin >= 4 && p.skin <= 6) return true;
-        return false;
+        return p.id == 44 && p.skin >= 4 && p.skin <= 6;
     }
 
     // 处理flipped翻转 (id=47特殊skin)

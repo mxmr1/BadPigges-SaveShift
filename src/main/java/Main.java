@@ -1,9 +1,9 @@
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -12,7 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
-public class main {
+public class Main {
     static String inputFilePath = "";
     static String outputDirPath = "";
     static JTextField inputText;  // 改为静态，方便 TransferHandler 更新
@@ -121,9 +121,18 @@ public class main {
         }
     }
 
+    // 通用方法：将 JFileChooser 设置为详细信息视图
+    private static void setDetailsView(JFileChooser fileChooser) {
+        Action detailsAction = fileChooser.getActionMap().get("viewTypeDetails");
+        if (detailsAction != null) {
+            detailsAction.actionPerformed(null);
+        }
+    }
+
     // 监听“选择输入文件”按钮
     public static class inputBrowseListener implements ActionListener {
         private JTextField textField;
+
         public inputBrowseListener(JTextField textField) {
             this.textField = textField;
         }
@@ -153,6 +162,7 @@ public class main {
     // 监听“选择输出文件夹”按钮
     public static class outputBrowseListener implements ActionListener {
         private JTextField textField;
+
         public outputBrowseListener(JTextField textField) {
             this.textField = textField;
         }
@@ -177,14 +187,6 @@ public class main {
             } else {
                 System.out.println("用户取消了备份文件夹选择");
             }
-        }
-    }
-
-    // 通用方法：将 JFileChooser 设置为详细信息视图
-    private static void setDetailsView(JFileChooser fileChooser) {
-        Action detailsAction = fileChooser.getActionMap().get("viewTypeDetails");
-        if (detailsAction != null) {
-            detailsAction.actionPerformed(null);
         }
     }
 
