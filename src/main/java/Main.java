@@ -131,7 +131,7 @@ public class Main {
 
     // 监听“选择输入文件”按钮
     public static class inputBrowseListener implements ActionListener {
-        private JTextField textField;
+        private final JTextField textField;
 
         public inputBrowseListener(JTextField textField) {
             this.textField = textField;
@@ -161,7 +161,7 @@ public class Main {
 
     // 监听“选择输出文件夹”按钮
     public static class outputBrowseListener implements ActionListener {
-        private JTextField textField;
+        private final JTextField textField;
 
         public outputBrowseListener(JTextField textField) {
             this.textField = textField;
