@@ -70,7 +70,7 @@ public class core {
 
     // id=47 需要特殊朝向转换的skin集合
     private static final Set<Integer> SPECIAL_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
-            45, 21, 22, 23, 24, 26, 28, 30, 32, 33, 36, 37, 47
+            45, 21, 22, 23, 24, 26, 28, 30, 32, 33, 36, 37, 47, 48
     ));
 
     // 需要跳过朝向转换的ID和skin条件
@@ -84,10 +84,19 @@ public class core {
 
     // 需要翻转flipped的skin集合 (id=47)
     private static final Set<Integer> FLIP_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
-            5, 25, 27, 29, 31, 34, 35
+            5, 25, 27, 29, 31, 35
     ));
 
-    // 新增的公共方法，供 GUI 调用
+    // 需要特殊朝向处理的skin集合
+    private static final Set<Integer> SPECIAL_ORIENTATION_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
+            5, 25, 27, 29, 31, 35
+    ));
+
+    private static final Set<Integer> SPECIAL_WIRE_SKIN_FOR_ID47 = new HashSet<>(Arrays.asList(
+            1, 3
+    ));
+
+    // 公共方法，供 GUI 调用
     public static void convertSave(String inputFile, String outputDir) throws IOException {
         // 1. 备份原文件到输出文件夹（可选，根据需求决定是否备份）
         backupFile(inputFile, outputDir);
@@ -108,11 +117,11 @@ public class core {
         String originalFileName = Paths.get(inputFile).getFileName().toString();
         String outputPath = Paths.get(outputDir, originalFileName).toString();
         writePartsToFile(outputPath, parts);
-        System.out.println("处理完成！结果已保存至 " + outputPath);
+        //System.out.println("处理完成！结果已保存至 " + outputPath);
     }
 
     public core(String inputFile) {
-    System.out.println(inputFile);
+    //System.out.println(inputFile);
     makeshift(inputFile);
     }
 
@@ -133,6 +142,21 @@ public class core {
         return p.id == 44 && p.skin >= 4 && p.skin <= 6;
     }
 
+    // 处理特殊电路部件转换
+    private static int handleOrientationForId47(int orientation) {
+        if (orientation == 0) return 2;
+        if (orientation == 2) return 0;
+        return orientation;
+    }
+
+    private static int specialWire(int orientation){
+        if (orientation == 2) return 5;
+        if (orientation == 5) return 2;
+        if (orientation == 3) return 4;
+        if (orientation == 4) return 3;
+        return orientation;
+    }
+
     // 处理flipped翻转 (id=47特殊skin)
     private static void handleSpecialFlipped(Part p) {
         if (p.id == 47 && FLIP_SKINS_FOR_ID47.contains(p.skin)) {
@@ -142,6 +166,16 @@ public class core {
 
     // 处理朝向转换
     private static void convertOrientation(Part p) {
+        if (p.id == 47 && SPECIAL_ORIENTATION_SKINS_FOR_ID47.contains(p.skin)){
+            p.orientation = handleOrientationForId47(p.orientation);
+            return;
+        }
+
+        if (p.id == 47 && SPECIAL_WIRE_SKIN_FOR_ID47.contains(p.skin)){
+            p.orientation = specialWire(p.orientation);
+            return;
+        }
+
         if (shouldSkipConversion(p)) {
             return; // 不处理朝向
         }
@@ -164,7 +198,7 @@ public class core {
                 if (line.isEmpty()) continue;
                 String[] fields = line.split(",");
                 if (fields.length != 6) {
-                    System.err.println("跳过无效行: " + line);
+                    //System.err.println("跳过无效行: " + line);
                     continue;
                 }
                 int id = Integer.parseInt(fields[0]);
@@ -219,12 +253,12 @@ public class core {
         // 如果目标文件已存在，先删除
         if (Files.exists(dest)) {
             Files.delete(dest);
-            System.out.println("已删除旧文件: " + dest);
+            //System.out.println("已删除旧文件: " + dest);
         }
 
         // 复制文件
         Files.copy(source, dest, StandardCopyOption.COPY_ATTRIBUTES);
-        System.out.println("备份成功: " + dest);
+        //System.out.println("备份成功！结果已保存至 " + dest);
     }
 
     public static void makeshift(String inputFile) {
@@ -236,7 +270,7 @@ public class core {
         try {
             backupFile(inputFile, destDirectory);
         } catch (IOException e) {
-            System.err.println("备份失败: " + e.getMessage());
+            //System.err.println("备份失败: " + e.getMessage());
         }
 
 
@@ -244,7 +278,7 @@ public class core {
             // 1. 读取
             List<Part> parts = readPartsFromFile(inputFile);
             if (parts.isEmpty()) {
-                System.err.println("文件为空或没有有效数据。");
+                //System.err.println("文件为空或没有有效数据。");
                 return;
             }
 
