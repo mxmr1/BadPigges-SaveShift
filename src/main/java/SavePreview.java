@@ -37,13 +37,40 @@ public class SavePreview {
 
         JButton btnC = new JButton("C");
         btnC.setPreferredSize(new Dimension(32, 32));
+        btnC.setMinimumSize(new Dimension(32, 32));
         btnC.setMaximumSize(new Dimension(32, 32));
-        btnC.setFont(new Font("SansSerif", Font.BOLD, 16));
+        btnC.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnC.setMargin(new Insets(0, 0, 0, 0));
+        btnC.setBorder(BorderFactory.createEmptyBorder());
+        btnC.setBorderPainted(false);
+        btnC.setFocusPainted(false);
 
         JButton btnV = new JButton("V");
         btnV.setPreferredSize(new Dimension(32, 32));
+        btnV.setMinimumSize(new Dimension(32, 32));
         btnV.setMaximumSize(new Dimension(32, 32));
-        btnV.setFont(new Font("SansSerif", Font.BOLD, 16));
+        btnV.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnV.setMargin(new Insets(0, 0, 0, 0));
+        btnV.setBorder(BorderFactory.createEmptyBorder());
+        btnV.setBorderPainted(false);
+        btnV.setFocusPainted(false);
+
+        btnC.addActionListener(e -> {
+            List<core.Part> sel = canvas.getSelectedParts();
+            if (sel == null || sel.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "请先右键框选要复制的部件！", "提示", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            canvas.startClipboard(sel);
+        });
+
+        btnV.addActionListener(e -> {
+            List<core.Part> pasted = canvas.pasteClipboard();
+            if (pasted != null && !pasted.isEmpty()) {
+                updateParts(parts);
+                JOptionPane.showMessageDialog(frame, "已粘贴 " + pasted.size() + " 个部件", "完成", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
 
         topPanel.add(btnC);
         topPanel.add(btnV);
@@ -140,6 +167,12 @@ public class SavePreview {
         private int layoutCols, layoutRows;
         private double scale = 1.0;
 
+        // 剪贴板相关
+        private List<core.Part> clipboardParts = new ArrayList<>();
+        private boolean clipboardActive = false;
+        private int clipboardAnchorCol = -1, clipboardAnchorRow = -1;  // 选中组左下角在格子中的列/行
+        private int clipboardMouseCol = 0, clipboardMouseRow = 0;      // 鼠标当前所在格子
+
         PartCanvas() {
             setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
@@ -158,6 +191,18 @@ public class SavePreview {
                 public void mouseDragged(MouseEvent e) {
                     if (isDragging) {
                         dragEnd = e.getPoint();
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void mouseMoved(MouseEvent e) {
+                    if (clipboardActive) {
+                        computeLayout();
+                        int[] grid = new int[2];
+                        screenToGrid(e.getX(), e.getY(), grid);
+                        clipboardMouseCol = grid[0];
+                        clipboardMouseRow = grid[1];
                         repaint();
                     }
                 }
@@ -248,6 +293,66 @@ public class SavePreview {
             colRow[1] = row;
         }
 
+        /**
+         * 将选中的部件复制到剪贴板，并进入粘贴预览模式。
+         * 记录所有选中部件相对于它们整体范围左下角的偏移。
+         */
+        public void startClipboard(List<core.Part> source) {
+            if (source == null || source.isEmpty()) return;
+            computeLayout();
+
+            // 计算 source 的最小列/行（左下角）
+            int minCol = Integer.MAX_VALUE;
+            int minRow = Integer.MAX_VALUE;
+            for (core.Part p : source) {
+                int col = p.x - layoutMinX;
+                int row = layoutMaxY - p.y;
+                if (col < minCol) minCol = col;
+                if (row < minRow) minRow = row;
+            }
+
+            clipboardAnchorCol = minCol;
+            clipboardAnchorRow = minRow;
+
+            // 存储相对于锚点的偏移 (dx, dy) 以及原始属性
+            clipboardParts.clear();
+            for (core.Part p : source) {
+                // 创建浅拷贝只是复制引用，但我们后续需要独立的新 Part，所以这里存储引用，paste 时 new 新对象
+                clipboardParts.add(p);
+            }
+
+            // 初始时鼠标位置设为锚点
+            clipboardMouseCol = minCol;
+            clipboardMouseRow = minRow;
+            clipboardActive = true;
+            repaint();
+        }
+
+        /**
+         * 执行粘贴：根据当前鼠标网格位置偏移生成新的部件列表，并退出预览模式。
+         * @return 新生成的部件列表
+         */
+        public List<core.Part> pasteClipboard() {
+            if (!clipboardActive || clipboardParts.isEmpty()) return new ArrayList<>();
+
+            int offsetCol = clipboardMouseCol - clipboardAnchorCol;
+            int offsetRow = clipboardMouseRow - clipboardAnchorRow;
+
+            List<core.Part> result = new ArrayList<>();
+            for (core.Part p : clipboardParts) {
+                int newX = p.x + offsetCol;
+                // 网格 row 与 y 反向：row = layoutMaxY - y
+                // 所以 row 增加 offsetRow 等价于 y 减少 offsetRow
+                int newY = p.y - offsetRow;
+                result.add(new core.Part(p.id, p.skin, newX, newY, p.orientation, p.flipped));
+            }
+
+            clipboardActive = false;
+            clipboardParts.clear();
+            repaint();
+            return result;
+        }
+
         private Rectangle getPartScreenRect(core.Part p) {
             int col = p.x - layoutMinX;
             int row = layoutMaxY - p.y;
@@ -318,6 +423,27 @@ public class SavePreview {
                 int canvasY = offsetY + row * cellSize;
                 BufferedImage img = loadImage(p.id, p.skin);
                 g2.drawImage(img, canvasX, canvasY, cellSize, cellSize, null);
+            }
+
+            // 绘制剪贴板半透明预览（25%透明）
+            if (clipboardActive && !clipboardParts.isEmpty()) {
+                int offsetCol = clipboardMouseCol - clipboardAnchorCol;
+                int offsetRow = clipboardMouseRow - clipboardAnchorRow;
+                Composite oldComposite = g2.getComposite();
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
+
+                for (core.Part p : clipboardParts) {
+                    int col = (p.x - layoutMinX) + offsetCol;
+                    int row = (layoutMaxY - p.y) + offsetRow;
+                    // 限定在网格范围内
+                    if (col < 0 || col >= layoutCols || row < 0 || row >= layoutRows) continue;
+                    int canvasX = offsetX + col * cellSize;
+                    int canvasY = offsetY + row * cellSize;
+                    BufferedImage img = loadImage(p.id, p.skin);
+                    g2.drawImage(img, canvasX, canvasY, cellSize, cellSize, null);
+                }
+
+                g2.setComposite(oldComposite);
             }
 
             g2.setColor(new Color(0, 200, 255, 80));
