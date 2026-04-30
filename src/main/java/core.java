@@ -8,43 +8,43 @@ import java.util.*;
 public class core {
 
 /**
- * ¾²Ì¬ÄÚ²¿ÀàPart£¬ÓÃÓÚ±íÊ¾ÓÎÏ·ÖĞµÄÒ»¸ö²¿¼ş
- * °üº¬²¿¼şµÄ¸÷ÖÖÊôĞÔÈçID¡¢Íâ¹Û¡¢Î»ÖÃ¡¢³¯ÏòºÍ·­×ª×´Ì¬µÈ
+ * é™æ€å†…éƒ¨ç±»Partï¼Œç”¨äºè¡¨ç¤ºæ¸¸æˆä¸­çš„ä¸€ä¸ªéƒ¨ä»¶
+ * åŒ…å«éƒ¨ä»¶çš„å„ç§å±æ€§å¦‚IDã€å¤–è§‚ã€ä½ç½®ã€æœå‘å’Œç¿»è½¬çŠ¶æ€ç­‰
  */
     static class Part {
-        int id;                // ²¿¼şµÄÎ¨Ò»±êÊ¶·û
-        int skin;              // ²¿¼şµÄÆ¤·ô/Íâ¹Û±êÊ¶
-        int x;                 // ²¿¼şÔÚxÖáÉÏµÄÎ»ÖÃ×ø±ê
-        int y;                 // ²¿¼şÔÚyÖáÉÏµÄÎ»ÖÃ×ø±ê
-        int orientation;       // ²¿¼şµÄ³¯Ïò½Ç¶È
-        int flipped;           // ²¿¼şÊÇ·ñ·­×ªµÄ±êÖ¾£¨0±íÊ¾Î´·­×ª£¬·Ç0±íÊ¾·­×ª£©
+        int id;                // éƒ¨ä»¶çš„å”¯ä¸€æ ‡è¯†ç¬¦
+        int skin;              // éƒ¨ä»¶çš„çš®è‚¤/å¤–è§‚æ ‡è¯†
+        int x;                 // éƒ¨ä»¶åœ¨xè½´ä¸Šçš„ä½ç½®åæ ‡
+        int y;                 // éƒ¨ä»¶åœ¨yè½´ä¸Šçš„ä½ç½®åæ ‡
+        int orientation;       // éƒ¨ä»¶çš„æœå‘è§’åº¦
+        int flipped;           // éƒ¨ä»¶æ˜¯å¦ç¿»è½¬çš„æ ‡å¿—ï¼ˆ0è¡¨ç¤ºæœªç¿»è½¬ï¼Œé0è¡¨ç¤ºç¿»è½¬ï¼‰
 
 /**
- * ¹¹Ôìº¯Êı£¬ÓÃÓÚ´´½¨Part¶ÔÏó
- * @param id ²¿¼şµÄÎ¨Ò»±êÊ¶·û
- * @param skin ²¿¼şµÄÆ¤·ô/Íâ¹Û±êÊ¶
- * @param x ²¿¼şÔÚxÖáÉÏµÄÎ»ÖÃ×ø±ê
- * @param y ²¿¼şÔÚyÖáÉÏµÄÎ»ÖÃ×ø±ê
- * @param orientation ²¿¼şµÄ³¯Ïò½Ç¶È
- * @param flipped ²¿¼şÊÇ·ñ·­×ªµÄ±êÖ¾£¨0±íÊ¾Î´·­×ª£¬·Ç0±íÊ¾·­×ª£©
+ * æ„é€ å‡½æ•°ï¼Œç”¨äºåˆ›å»ºPartå¯¹è±¡
+ * @param id éƒ¨ä»¶çš„å”¯ä¸€æ ‡è¯†ç¬¦
+ * @param skin éƒ¨ä»¶çš„çš®è‚¤/å¤–è§‚æ ‡è¯†
+ * @param x éƒ¨ä»¶åœ¨xè½´ä¸Šçš„ä½ç½®åæ ‡
+ * @param y éƒ¨ä»¶åœ¨yè½´ä¸Šçš„ä½ç½®åæ ‡
+ * @param orientation éƒ¨ä»¶çš„æœå‘è§’åº¦
+ * @param flipped éƒ¨ä»¶æ˜¯å¦ç¿»è½¬çš„æ ‡å¿—ï¼ˆ0è¡¨ç¤ºæœªç¿»è½¬ï¼Œé0è¡¨ç¤ºç¿»è½¬ï¼‰
  */
         Part(int id, int skin, int x, int y, int orientation, int flipped) {
-            this.id = id;          // ³õÊ¼»¯²¿¼şID
-            this.skin = skin;      // ³õÊ¼»¯²¿¼şÆ¤·ô
-            this.x = x;            // ³õÊ¼»¯x×ø±ê
-            this.y = y;            // ³õÊ¼»¯y×ø±ê
-            this.orientation = orientation;  // ³õÊ¼»¯²¿¼ş³¯Ïò
-            this.flipped = flipped;        // ³õÊ¼»¯·­×ª×´Ì¬
+            this.id = id;          // åˆå§‹åŒ–éƒ¨ä»¶ID
+            this.skin = skin;      // åˆå§‹åŒ–éƒ¨ä»¶çš®è‚¤
+            this.x = x;            // åˆå§‹åŒ–xåæ ‡
+            this.y = y;            // åˆå§‹åŒ–yåæ ‡
+            this.orientation = orientation;  // åˆå§‹åŒ–éƒ¨ä»¶æœå‘
+            this.flipped = flipped;        // åˆå§‹åŒ–ç¿»è½¬çŠ¶æ€
         }
     }
 
-    // ÆÕÍ¨³¯Ïò×ª»»Ó³Éä
+    // æ™®é€šæœå‘è½¬æ¢æ˜ å°„
     private static final Map<Integer, Integer> ORIENTATION_MAP_NORMAL = new HashMap<>();
-    // ÌØÊâ³¯Ïò×ª»»Ó³Éä£¨id=39µÈ£©
+    // ç‰¹æ®Šæœå‘è½¬æ¢æ˜ å°„ï¼ˆid=39ç­‰ï¼‰
     private static final Map<Integer, Integer> ORIENTATION_MAP_SPECIAL = new HashMap<>();
 
     static {
-        // ÆÕÍ¨Ó³Éä£º0->0,1->3,2->2,3->1,4->7,5->6,6->5,7->4
+        // æ™®é€šæ˜ å°„ï¼š0->0,1->3,2->2,3->1,4->7,5->6,6->5,7->4
         ORIENTATION_MAP_NORMAL.put(0, 0);
         ORIENTATION_MAP_NORMAL.put(1, 3);
         ORIENTATION_MAP_NORMAL.put(2, 2);
@@ -54,7 +54,7 @@ public class core {
         ORIENTATION_MAP_NORMAL.put(6, 5);
         ORIENTATION_MAP_NORMAL.put(7, 4);
 
-        // ÌØÊâÓ³Éä£º0->2,1->1,2->0,3->3,4->5,5->4,6->7,7->6
+        // ç‰¹æ®Šæ˜ å°„ï¼š0->2,1->1,2->0,3->3,4->5,5->4,6->7,7->6
         ORIENTATION_MAP_SPECIAL.put(0, 2);
         ORIENTATION_MAP_SPECIAL.put(1, 1);
         ORIENTATION_MAP_SPECIAL.put(2, 0);
@@ -65,29 +65,29 @@ public class core {
         ORIENTATION_MAP_SPECIAL.put(7, 6);
     }
 
-    // ĞèÒªÌØÊâ³¯Ïò×ª»»µÄID¼¯ºÏ
+    // éœ€è¦ç‰¹æ®Šæœå‘è½¬æ¢çš„IDé›†åˆ
     private static final Set<Integer> SPECIAL_IDS = new HashSet<>(Arrays.asList(11, 13, 15, 16, 17, 18, 39));
 
-    // id=47 ĞèÒªÌØÊâ³¯Ïò×ª»»µÄskin¼¯ºÏ
+    // id=47 éœ€è¦ç‰¹æ®Šæœå‘è½¬æ¢çš„skiné›†åˆ
     private static final Set<Integer> SPECIAL_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
             45, 21, 22, 23, 24, 26, 28, 30, 32, 33, 36, 37, 47, 48
     ));
 
-    // ĞèÒªÌø¹ı³¯Ïò×ª»»µÄIDºÍskinÌõ¼ş
-    // Ìõ¼ş1: id=46, skin=3
-    // Ìõ¼ş2: id=41
-    // Ìõ¼ş3: id=47, skin in {0,6,7,8,9,10,11,38,39,42}
+    // éœ€è¦è·³è¿‡æœå‘è½¬æ¢çš„IDå’Œskinæ¡ä»¶
+    // æ¡ä»¶1: id=46, skin=3
+    // æ¡ä»¶2: id=41
+    // æ¡ä»¶3: id=47, skin in {0,6,7,8,9,10,11,38,39,42}
     private static final Set<Integer> SKIP_IDS = new HashSet<>(Collections.singletonList(41));
     private static final Set<Integer> SKIP_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
             0, 6, 7, 8, 9, 10, 11, 38, 39, 42
     ));
 
-    // ĞèÒª·­×ªflippedµÄskin¼¯ºÏ (id=47)
+    // éœ€è¦ç¿»è½¬flippedçš„skiné›†åˆ (id=47)
     private static final Set<Integer> FLIP_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
             5, 25, 27, 29, 31, 35
     ));
 
-    // ĞèÒªÌØÊâ³¯Ïò´¦ÀíµÄskin¼¯ºÏ
+    // éœ€è¦ç‰¹æ®Šæœå‘å¤„ç†çš„skiné›†åˆ
     private static final Set<Integer> SPECIAL_ORIENTATION_SKINS_FOR_ID47 = new HashSet<>(Arrays.asList(
             5, 25, 27, 29, 31, 35
     ));
@@ -96,15 +96,15 @@ public class core {
             1, 3
     ));
 
-    // ¹«¹²·½·¨£¬¹© GUI µ÷ÓÃ
+    // å…¬å…±æ–¹æ³•ï¼Œä¾› GUI è°ƒç”¨
     public static void convertSave(String inputFile, String outputDir) throws IOException {
-        // 1. ±¸·İÔ­ÎÄ¼şµ½Êä³öÎÄ¼ş¼Ğ£¨¿ÉÑ¡£¬¸ù¾İĞèÇó¾ö¶¨ÊÇ·ñ±¸·İ£©
+        // 1. å¤‡ä»½åŸæ–‡ä»¶åˆ°è¾“å‡ºæ–‡ä»¶å¤¹ï¼ˆå¯é€‰ï¼Œæ ¹æ®éœ€æ±‚å†³å®šæ˜¯å¦å¤‡ä»½ï¼‰
         backupFile(inputFile, outputDir);
 
-        // 2. ´¦Àí×ª»»
+        // 2. å¤„ç†è½¬æ¢
         List<Part> parts = readPartsFromFile(inputFile);
         if (parts.isEmpty()) {
-            throw new IOException("ÎÄ¼şÎª¿Õ»òÃ»ÓĞÓĞĞ§Êı¾İ¡£");
+            throw new IOException("æ–‡ä»¶ä¸ºç©ºæˆ–æ²¡æœ‰æœ‰æ•ˆæ•°æ®ã€‚");
         }
 
         mirrorXCoordinates(parts);
@@ -113,11 +113,16 @@ public class core {
             convertOrientation(p);
         }
 
-        // Êä³öÎÄ¼şÖ±½Ó±£´æÔÚÊä³öÎÄ¼ş¼ĞÖĞ£¬ÎÄ¼şÃû¿É×Ô¶¨Òå£¬ÀıÈçÔ­ÎÄ¼şÃû + "_converted"
+        // è¾“å‡ºæ–‡ä»¶ç›´æ¥ä¿å­˜åœ¨è¾“å‡ºæ–‡ä»¶å¤¹ä¸­ï¼Œæ–‡ä»¶åå¯è‡ªå®šä¹‰ï¼Œä¾‹å¦‚åŸæ–‡ä»¶å + "_converted"
         String originalFileName = Paths.get(inputFile).getFileName().toString();
         String outputPath = Paths.get(outputDir, originalFileName).toString();
         writePartsToFile(outputPath, parts);
-        //System.out.println("´¦ÀíÍê³É£¡½á¹ûÒÑ±£´æÖÁ " + outputPath);
+        //System.out.println("å¤„ç†å®Œæˆï¼ç»“æœå·²ä¿å­˜è‡³ " + outputPath);
+    }
+
+    public static final List<Part> getPartlist(String inputFile)throws IOException{
+        List<Part> parts = readPartsFromFile(inputFile);
+        return parts;
     }
 
     public core(String inputFile) {
@@ -125,24 +130,24 @@ public class core {
     makeshift(inputFile);
     }
 
-    // ÅĞ¶ÏÊÇ·ñĞèÒªÌØÊâ³¯Ïò×ª»»
+    // åˆ¤æ–­æ˜¯å¦éœ€è¦ç‰¹æ®Šæœå‘è½¬æ¢
     private static boolean needsSpecialConversion(Part p) {
         if (SPECIAL_IDS.contains(p.id)) return true;
         if (p.id == 46 && (p.skin == 0 || p.skin == 1)) return true;
         return p.id == 47 && SPECIAL_SKINS_FOR_ID47.contains(p.skin);
     }
 
-    // ÅĞ¶ÏÊÇ·ñĞèÒªÌø¹ı³¯Ïò×ª»»
+    // åˆ¤æ–­æ˜¯å¦éœ€è¦è·³è¿‡æœå‘è½¬æ¢
     private static boolean shouldSkipConversion(Part p) {
         if (p.id == 46 && p.skin == 3) return true;
         if (p.id == 46 && p.skin == 2) return true;
         if (SKIP_IDS.contains(p.id)) return true;
         if (p.id == 47 && SKIP_SKINS_FOR_ID47.contains(p.skin)) return true;
-        // ¶îÍâÌõ¼ş: id=44, skin 4~6
+        // é¢å¤–æ¡ä»¶: id=44, skin 4~6
         return p.id == 44 && p.skin >= 4 && p.skin <= 6;
     }
 
-    // ´¦ÀíÌØÊâµçÂ·²¿¼ş×ª»»
+    // å¤„ç†ç‰¹æ®Šç”µè·¯éƒ¨ä»¶è½¬æ¢
     private static int handleOrientationForId47(int orientation) {
         if (orientation == 0) return 2;
         if (orientation == 2) return 0;
@@ -157,14 +162,14 @@ public class core {
         return orientation;
     }
 
-    // ´¦Àíflipped·­×ª (id=47ÌØÊâskin)
+    // å¤„ç†flippedç¿»è½¬ (id=47ç‰¹æ®Šskin)
     private static void handleSpecialFlipped(Part p) {
         if (p.id == 47 && FLIP_SKINS_FOR_ID47.contains(p.skin)) {
             p.flipped = 1 - p.flipped;
         }
     }
 
-    // ´¦Àí³¯Ïò×ª»»
+    // å¤„ç†æœå‘è½¬æ¢
     private static void convertOrientation(Part p) {
         if (p.id == 47 && SPECIAL_ORIENTATION_SKINS_FOR_ID47.contains(p.skin)){
             p.orientation = handleOrientationForId47(p.orientation);
@@ -177,7 +182,7 @@ public class core {
         }
 
         if (shouldSkipConversion(p)) {
-            return; // ²»´¦Àí³¯Ïò
+            return; // ä¸å¤„ç†æœå‘
         }
         if (needsSpecialConversion(p)) {
             Integer newOri = ORIENTATION_MAP_SPECIAL.get(p.orientation);
@@ -188,8 +193,8 @@ public class core {
         }
     }
 
-    // ¶ÁÈ¡ÎÄ¼ş£¬½âÎöÃ¿ĞĞ
-    private static List<Part> readPartsFromFile(String filename) throws IOException {
+    // è¯»å–æ–‡ä»¶ï¼Œè§£ææ¯è¡Œ
+    public static List<Part> readPartsFromFile(String filename) throws IOException {
         List<Part> parts = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
@@ -198,7 +203,7 @@ public class core {
                 if (line.isEmpty()) continue;
                 String[] fields = line.split(",");
                 if (fields.length != 6) {
-                    //System.err.println("Ìø¹ıÎŞĞ§ĞĞ: " + line);
+                    //System.err.println("è·³è¿‡æ— æ•ˆè¡Œ: " + line);
                     continue;
                 }
                 int id = Integer.parseInt(fields[0]);
@@ -213,7 +218,7 @@ public class core {
         return parts;
     }
 
-    // ¾µÏñX×ø±ê (»ùÓÚmin_xºÍmax_xµÄÖĞ¼äÖµ)
+    // é•œåƒXåæ ‡ (åŸºäºmin_xå’Œmax_xçš„ä¸­é—´å€¼)
     private static void mirrorXCoordinates(List<Part> parts) {
         if (parts.isEmpty()) return;
         int minX = Integer.MAX_VALUE;
@@ -228,7 +233,7 @@ public class core {
         }
     }
 
-    // Ğ´ÈëÊä³öÎÄ¼ş
+    // å†™å…¥è¾“å‡ºæ–‡ä»¶
     private static void writePartsToFile(String filename, List<Part> parts) throws IOException {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(filename))) {
             for (Part p : parts) {
@@ -242,61 +247,61 @@ public class core {
     public static void backupFile(String sourcePath, String destDir) throws IOException {
         Path source = Paths.get(sourcePath);
         if (!Files.exists(source)) {
-            throw new IOException("Ô´ÎÄ¼ş²»´æÔÚ: " + sourcePath);
+            throw new IOException("æºæ–‡ä»¶ä¸å­˜åœ¨: " + sourcePath);
         }
 
-        // ÌáÈ¡Ô´ÎÄ¼şÃû£¨²»º¬Ä¿Â¼£©
+        // æå–æºæ–‡ä»¶åï¼ˆä¸å«ç›®å½•ï¼‰
         String fileName = source.getFileName().toString();
         String bakFileName = fileName + ".bak";
         Path dest = Paths.get(destDir, bakFileName);
 
-        // Èç¹ûÄ¿±êÎÄ¼şÒÑ´æÔÚ£¬ÏÈÉ¾³ı
+        // å¦‚æœç›®æ ‡æ–‡ä»¶å·²å­˜åœ¨ï¼Œå…ˆåˆ é™¤
         if (Files.exists(dest)) {
             Files.delete(dest);
-            //System.out.println("ÒÑÉ¾³ı¾ÉÎÄ¼ş: " + dest);
+            //System.out.println("å·²åˆ é™¤æ—§æ–‡ä»¶: " + dest);
         }
 
-        // ¸´ÖÆÎÄ¼ş
+        // å¤åˆ¶æ–‡ä»¶
         Files.copy(source, dest, StandardCopyOption.COPY_ATTRIBUTES);
-        //System.out.println("±¸·İ³É¹¦£¡½á¹ûÒÑ±£´æÖÁ " + dest);
+        //System.out.println("å¤‡ä»½æˆåŠŸï¼ç»“æœå·²ä¿å­˜è‡³ " + dest);
     }
 
     public static void makeshift(String inputFile) {
-        //String inputFile = "C:\\Users\\mx__mr\\AppData\\LocalLow\\Rovio\\ĞÂ´´Unity ¿Æ¼¼°æ\\contraptionsB\\Level_Sandbox_06_1";
+        //String inputFile = "C:\\Users\\mx__mr\\AppData\\LocalLow\\Rovio\\æ–°åˆ›Unity ç§‘æŠ€ç‰ˆ\\contraptionsB\\Level_Sandbox_06_1";
         String outputFile = "output_final.txt";
 
-        String destDirectory = "C:\\Users\\mx__mr\\Desktop\\ÄÑµÀËµ";
+        String destDirectory = "C:\\Users\\mx__mr\\Desktop\\éš¾é“è¯´";
 
         try {
             backupFile(inputFile, destDirectory);
         } catch (IOException e) {
-            //System.err.println("±¸·İÊ§°Ü: " + e.getMessage());
+            //System.err.println("å¤‡ä»½å¤±è´¥: " + e.getMessage());
         }
 
 
         try {
-            // 1. ¶ÁÈ¡
+            // 1. è¯»å–
             List<Part> parts = readPartsFromFile(inputFile);
             if (parts.isEmpty()) {
-                //System.err.println("ÎÄ¼şÎª¿Õ»òÃ»ÓĞÓĞĞ§Êı¾İ¡£");
+                //System.err.println("æ–‡ä»¶ä¸ºç©ºæˆ–æ²¡æœ‰æœ‰æ•ˆæ•°æ®ã€‚");
                 return;
             }
 
-            // 2. ¾µÏñX×ø±ê
+            // 2. é•œåƒXåæ ‡
             mirrorXCoordinates(parts);
 
-            // 3. ´¦ÀíflippedºÍ³¯Ïò
+            // 3. å¤„ç†flippedå’Œæœå‘
             for (Part p : parts) {
                 handleSpecialFlipped(p);
                 convertOrientation(p);
             }
 
-            // 4. Ğ´Èë
+            // 4. å†™å…¥
             writePartsToFile(outputFile, parts);
-            System.out.println("´¦ÀíÍê³É£¡½á¹ûÒÑ±£´æÖÁ " + outputFile);
+            System.out.println("å¤„ç†å®Œæˆï¼ç»“æœå·²ä¿å­˜è‡³ " + outputFile);
 
         } catch (IOException e) {
-            System.err.println("·¢Éú´íÎó: " + e.getMessage());
+            System.err.println("å‘ç”Ÿé”™è¯¯: " + e.getMessage());
             e.printStackTrace();
         }
     }

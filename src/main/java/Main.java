@@ -15,13 +15,13 @@ import java.util.List;
 public class Main {
     static String inputFilePath = "";
     static String outputDirPath = "";
-    static JTextField inputText;  // ¸ÄÎª¾²Ì¬£¬·½±ã TransferHandler ¸üĞÂ
+    static JTextField inputText;  // æ”¹ä¸ºé™æ€ï¼Œæ–¹ä¾¿ TransferHandler æ›´æ–°
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("´æµµ·½Ïò×ª»»¹¤¾ß");
+        JFrame frame = new JFrame("å­˜æ¡£æ–¹å‘è½¬æ¢å·¥å…·");
         frame.setSize(400, 200);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLocationRelativeTo(null); // ´°¿Ú¾ÓÖĞ
+        frame.setLocationRelativeTo(null); // çª—å£å±…ä¸­
 
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -33,7 +33,7 @@ public class Main {
         frame.add(panel);
         placeComponents(panel);
 
-        // ÉèÖÃÍÏ×§Ö§³Ö
+        // è®¾ç½®æ‹–æ‹½æ”¯æŒ
         frame.setTransferHandler(new FileDropHandler());
 
         frame.setVisible(true);
@@ -42,7 +42,7 @@ public class Main {
     private static void placeComponents(JPanel panel) {
         panel.setLayout(null);
 
-        JLabel inputLabel = new JLabel("ÊäÈëÎÄ¼ş:");
+        JLabel inputLabel = new JLabel("è¾“å…¥æ–‡ä»¶:");
         inputLabel.setBounds(10, 20, 80, 25);
         panel.add(inputLabel);
 
@@ -51,12 +51,12 @@ public class Main {
         inputText.setEditable(false);
         panel.add(inputText);
 
-        JButton inputButton = new JButton("Ñ¡ÔñÊäÈëÎÄ¼ş");
+        JButton inputButton = new JButton("é€‰æ‹©è¾“å…¥æ–‡ä»¶");
         inputButton.setBounds(260, 20, 120, 25);
         inputButton.addActionListener(new inputBrowseListener(inputText));
         panel.add(inputButton);
 
-        JLabel outputLabel = new JLabel("±¸·İÎÄ¼ş¼Ğ:");
+        JLabel outputLabel = new JLabel("å¤‡ä»½æ–‡ä»¶å¤¹:");
         outputLabel.setBounds(10, 60, 80, 25);
         panel.add(outputLabel);
 
@@ -65,29 +65,29 @@ public class Main {
         outputText.setEditable(false);
         panel.add(outputText);
 
-        JButton outputButton = new JButton("Ñ¡Ôñ±¸·İÎÄ¼ş¼Ğ");
+        JButton outputButton = new JButton("é€‰æ‹©å¤‡ä»½æ–‡ä»¶å¤¹");
         outputButton.setBounds(260, 60, 120, 25);
         outputButton.addActionListener(new outputBrowseListener(outputText));
         panel.add(outputButton);
 
-        JButton startButton = new JButton("×ª»»´æµµ·½Ïò");
+        JButton startButton = new JButton("è½¬æ¢å­˜æ¡£æ–¹å‘");
         startButton.setBounds(100, 120, 150, 25);
         startButton.addActionListener(new startSaveShift());
         panel.add(startButton);
     }
 
-    // ¼ì²éÎÄ¼şÃûÊÇ·ñ´øÓĞÈÎºÎºó×º£¨Ö»ÒªÎÄ¼şÃû°üº¬µãºÅÇÒµãºÅ²»ÊÇµÚÒ»¸ö×Ö·û£¬¼´ÈÏÎªÓĞºó×º£©
+    // æ£€æŸ¥æ–‡ä»¶åæ˜¯å¦å¸¦æœ‰ä»»ä½•åç¼€ï¼ˆåªè¦æ–‡ä»¶ååŒ…å«ç‚¹å·ä¸”ç‚¹å·ä¸æ˜¯ç¬¬ä¸€ä¸ªå­—ç¬¦ï¼Œå³è®¤ä¸ºæœ‰åç¼€ï¼‰
     private static boolean hasAnyExtension(String filePath) {
         String fileName = new File(filePath).getName();
         int lastDotIndex = fileName.lastIndexOf('.');
         if (lastDotIndex > 0) {
-            //System.err.println("ÎÄ¼şÃû°üº¬ºó×º£º" + fileName.substring(lastDotIndex));
+            //System.err.println("æ–‡ä»¶ååŒ…å«åç¼€ï¼š" + fileName.substring(lastDotIndex));
             return true;
         }
         return false;
     }
 
-    // ÑéÖ¤ÎÄ¼şÄÚÈİ¸ñÊ½£ºÃ¿ĞĞ±ØĞëÊÇ6¸ö¶ººÅ·Ö¸ôµÄÕûÊı
+    // éªŒè¯æ–‡ä»¶å†…å®¹æ ¼å¼ï¼šæ¯è¡Œå¿…é¡»æ˜¯6ä¸ªé€—å·åˆ†éš”çš„æ•´æ•°
     private static boolean isValidFormat(String filePath) {
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
@@ -97,31 +97,31 @@ public class Main {
                 if (line.isEmpty()) continue;
                 String[] parts = line.split(",");
                 if (parts.length != 6) {
-                    //System.err.println("ĞĞ " + (lineNum + 1) + " ×Ö¶ÎÊı²»ÊÇ6: " + line);
+                    //System.err.println("è¡Œ " + (lineNum + 1) + " å­—æ®µæ•°ä¸æ˜¯6: " + line);
                     return false;
                 }
                 for (int i = 0; i < 6; i++) {
                     try {
                         Integer.parseInt(parts[i].trim());
                     } catch (NumberFormatException e) {
-                        //System.err.println("ĞĞ " + (lineNum + 1) + " ×Ö¶Î " + i + " ²»ÊÇÕûÊı: " + parts[i]);
+                        //System.err.println("è¡Œ " + (lineNum + 1) + " å­—æ®µ " + i + " ä¸æ˜¯æ•´æ•°: " + parts[i]);
                         return false;
                     }
                 }
                 lineNum++;
             }
             if (lineNum == 0) {
-                //System.err.println("ÎÄ¼şÎª¿Õ");
+                //System.err.println("æ–‡ä»¶ä¸ºç©º");
                 return false;
             }
             return true;
         } catch (IOException e) {
-            //System.err.println("¶ÁÈ¡ÎÄ¼şÊ±³ö´í: " + e.getMessage());
+            //System.err.println("è¯»å–æ–‡ä»¶æ—¶å‡ºé”™: " + e.getMessage());
             return false;
         }
     }
 
-    // Í¨ÓÃ·½·¨£º½« JFileChooser ÉèÖÃÎªÏêÏ¸ĞÅÏ¢ÊÓÍ¼
+    // é€šç”¨æ–¹æ³•ï¼šå°† JFileChooser è®¾ç½®ä¸ºè¯¦ç»†ä¿¡æ¯è§†å›¾
     private static void setDetailsView(JFileChooser fileChooser) {
         Action detailsAction = fileChooser.getActionMap().get("viewTypeDetails");
         if (detailsAction != null) {
@@ -129,7 +129,7 @@ public class Main {
         }
     }
 
-    // ¼àÌı¡°Ñ¡ÔñÊäÈëÎÄ¼ş¡±°´Å¥
+    // ç›‘å¬â€œé€‰æ‹©è¾“å…¥æ–‡ä»¶â€æŒ‰é’®
     public static class inputBrowseListener implements ActionListener {
         private final JTextField textField;
 
@@ -140,9 +140,9 @@ public class Main {
         @Override
         public void actionPerformed(ActionEvent e) {
             JFileChooser fileChooser = new JFileChooser(".");
-            fileChooser.setDialogTitle("Ñ¡ÔñÊäÈëÎÄ¼ş");
+            fileChooser.setDialogTitle("é€‰æ‹©è¾“å…¥æ–‡ä»¶");
 
-            // Ç¿ÖÆÉèÖÃÎªÏêÏ¸ĞÅÏ¢ÊÓÍ¼
+            // å¼ºåˆ¶è®¾ç½®ä¸ºè¯¦ç»†ä¿¡æ¯è§†å›¾
             setDetailsView(fileChooser);
 
             JButton source = (JButton) e.getSource();
@@ -152,14 +152,14 @@ public class Main {
             if (result == JFileChooser.APPROVE_OPTION) {
                 inputFilePath = fileChooser.getSelectedFile().getAbsolutePath();
                 textField.setText(inputFilePath);
-                //System.out.println("Ñ¡ÖĞÊäÈëÎÄ¼ş: " + inputFilePath);
+                //System.out.println("é€‰ä¸­è¾“å…¥æ–‡ä»¶: " + inputFilePath);
             } else {
-                //System.out.println("ÓÃ»§È¡ÏûÁËÊäÈëÎÄ¼şÑ¡Ôñ");
+                //System.out.println("ç”¨æˆ·å–æ¶ˆäº†è¾“å…¥æ–‡ä»¶é€‰æ‹©");
             }
         }
     }
 
-    // ¼àÌı¡°Ñ¡ÔñÊä³öÎÄ¼ş¼Ğ¡±°´Å¥
+    // ç›‘å¬â€œé€‰æ‹©è¾“å‡ºæ–‡ä»¶å¤¹â€æŒ‰é’®
     public static class outputBrowseListener implements ActionListener {
         private final JTextField textField;
 
@@ -171,9 +171,9 @@ public class Main {
         public void actionPerformed(ActionEvent e) {
             JFileChooser folderChooser = new JFileChooser(".");
             folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            folderChooser.setDialogTitle("Ñ¡Ôñ±¸·İÎÄ¼ş¼Ğ");
+            folderChooser.setDialogTitle("é€‰æ‹©å¤‡ä»½æ–‡ä»¶å¤¹");
 
-            // Ç¿ÖÆÉèÖÃÎªÏêÏ¸ĞÅÏ¢ÊÓÍ¼
+            // å¼ºåˆ¶è®¾ç½®ä¸ºè¯¦ç»†ä¿¡æ¯è§†å›¾
             setDetailsView(folderChooser);
 
             JButton source = (JButton) e.getSource();
@@ -183,14 +183,14 @@ public class Main {
             if (result == JFileChooser.APPROVE_OPTION) {
                 outputDirPath = folderChooser.getSelectedFile().getAbsolutePath();
                 textField.setText(outputDirPath);
-                //System.out.println("Ñ¡ÖĞ±¸·İÎÄ¼ş¼Ğ: " + outputDirPath);
+                //System.out.println("é€‰ä¸­å¤‡ä»½æ–‡ä»¶å¤¹: " + outputDirPath);
             } else {
-                //System.out.println("ÓÃ»§È¡ÏûÁË±¸·İÎÄ¼ş¼ĞÑ¡Ôñ");
+                //System.out.println("ç”¨æˆ·å–æ¶ˆäº†å¤‡ä»½æ–‡ä»¶å¤¹é€‰æ‹©");
             }
         }
     }
 
-    // ×Ô¶¨Òå TransferHandler ´¦ÀíÎÄ¼şÍÏ×§
+    // è‡ªå®šä¹‰ TransferHandler å¤„ç†æ–‡ä»¶æ‹–æ‹½
     static class FileDropHandler extends TransferHandler {
         @Override
         public boolean canImport(TransferSupport support) {
@@ -210,13 +210,14 @@ public class Main {
                 if (files.isEmpty()) {
                     return false;
                 }
-                // Ö»È¡µÚÒ»¸öÎÄ¼ş
+                // åªå–ç¬¬ä¸€ä¸ªæ–‡ä»¶
                 File droppedFile = files.get(0);
                 if (droppedFile.isFile()) {
                     inputFilePath = droppedFile.getAbsolutePath();
-                    // ¸üĞÂ½çÃæÉÏµÄÎÄ±¾¿ò
+                    // æ›´æ–°ç•Œé¢ä¸Šçš„æ–‡æœ¬æ¡†
                     SwingUtilities.invokeLater(() -> inputText.setText(inputFilePath));
-                    //System.out.println("ÍÏ×§ÎÄ¼ş: " + inputFilePath);
+                    //System.out.println("æ‹–æ‹½æ–‡ä»¶: " + inputFilePath);
+                    Previer(files.toString());
                     return true;
                 }
             } catch (UnsupportedFlavorException | IOException e) {
@@ -226,24 +227,24 @@ public class Main {
         }
     }
 
-    // ¼àÌı¡°×ª»»´æµµ·½Ïò¡±°´Å¥
+    // ç›‘å¬â€œè½¬æ¢å­˜æ¡£æ–¹å‘â€æŒ‰é’®
     public static class startSaveShift implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             if (inputFilePath.isEmpty()) {
-                JOptionPane.showMessageDialog(null, "ÇëÏÈÑ¡ÔñÊäÈëÎÄ¼ş£¡", "ÌáÊ¾", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(null, "è¯·å…ˆé€‰æ‹©è¾“å…¥æ–‡ä»¶ï¼", "æç¤º", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             if (!Files.exists(Paths.get(inputFilePath))) {
-                JOptionPane.showMessageDialog(null, "ÊäÈëÎÄ¼ş²»´æÔÚ£¬ÇëÖØĞÂÑ¡Ôñ£¡", "´íÎó", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(null, "è¾“å…¥æ–‡ä»¶ä¸å­˜åœ¨ï¼Œè¯·é‡æ–°é€‰æ‹©ï¼", "é”™è¯¯", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             if (hasAnyExtension(inputFilePath)) {
-                JOptionPane.showMessageDialog(null, "ÎÄ¼ş¸ñÊ½´íÎó£º²»ÔÊĞíÊ¹ÓÃ´øºó×ºµÄÎÄ¼şÃû£¡", "´íÎó", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(null, "æ–‡ä»¶æ ¼å¼é”™è¯¯ï¼šä¸å…è®¸ä½¿ç”¨å¸¦åç¼€çš„æ–‡ä»¶åï¼", "é”™è¯¯", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             if (!isValidFormat(inputFilePath)) {
-                JOptionPane.showMessageDialog(null, "ÎÄ¼şÄÚÈİ¸ñÊ½´íÎó£¡\nÒªÇó£ºÃ¿ĞĞ6¸ö¶ººÅ·Ö¸ôµÄÕûÊı", "´íÎó", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(null, "æ–‡ä»¶å†…å®¹æ ¼å¼é”™è¯¯ï¼\nè¦æ±‚ï¼šæ¯è¡Œ6ä¸ªé€—å·åˆ†éš”çš„æ•´æ•°", "é”™è¯¯", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             if (outputDirPath.isEmpty()) {
@@ -254,18 +255,23 @@ public class Main {
                     Files.createDirectories(Paths.get(outputDirPath));
                 }
             } catch (IOException ex) {
-                JOptionPane.showMessageDialog(null, "ÎŞ·¨´´½¨±¸·İÎÄ¼ş¼Ğ£º" + ex.getMessage(), "´íÎó", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(null, "æ— æ³•åˆ›å»ºå¤‡ä»½æ–‡ä»¶å¤¹ï¼š" + ex.getMessage(), "é”™è¯¯", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            //System.out.println("¿ªÊ¼×ª»»´æµµ·½Ïò£¡");
+            //System.out.println("å¼€å§‹è½¬æ¢å­˜æ¡£æ–¹å‘ï¼");
             try {
                 core.convertSave(inputFilePath, outputDirPath);
-                JOptionPane.showMessageDialog(null, "×ª»»Íê³É£¡", "³É¹¦", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(null, "è½¬æ¢å®Œæˆï¼", "æˆåŠŸ", JOptionPane.INFORMATION_MESSAGE);
             } catch (IOException ex) {
-                JOptionPane.showMessageDialog(null, "×ª»»Ê§°Ü£º" + ex.getMessage(), "´íÎó", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(null, "è½¬æ¢å¤±è´¥ï¼š" + ex.getMessage(), "é”™è¯¯", JOptionPane.ERROR_MESSAGE);
                 ex.printStackTrace();
             }
         }
+    }
+
+    public static void Previer (String inputFile) throws IOException {
+        List<core.Part> partList = core.getPartlist(inputFile);
+        new SavePreview(partList);
     }
 }

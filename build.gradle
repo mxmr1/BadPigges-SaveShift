@@ -5,8 +5,12 @@ plugins {
     id 'org.beryx.runtime' version '1.13.1'
 }
 
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
 group = 'com.Main'
-version = '1.0.0'
+version = '1.0.1'
 
 repositories {
     mavenCentral()
@@ -19,7 +23,7 @@ dependencies {
 
 application {
     // 务必替换成你自己的主类全限定名
-    mainClass = 'Main'
+    mainClass = "Main"
 }
 
 // Badass Runtime 插件配置
