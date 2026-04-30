@@ -1,9 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseWheelEvent;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -46,26 +43,21 @@ public class SavePreview {
         btnC.setBorderPainted(false);
         btnC.setFocusPainted(false);
 
-        JButton btnV = new JButton("V");
-        btnV.setPreferredSize(new Dimension(32, 32));
-        btnV.setMinimumSize(new Dimension(32, 32));
-        btnV.setMaximumSize(new Dimension(32, 32));
-        btnV.setFont(new Font("SansSerif", Font.BOLD, 14));
-        btnV.setMargin(new Insets(0, 0, 0, 0));
-        btnV.setBorder(BorderFactory.createEmptyBorder());
-        btnV.setBorderPainted(false);
-        btnV.setFocusPainted(false);
+        JButton btnSave = new JButton("S");
+        btnSave.setPreferredSize(new Dimension(32, 32));
+        btnSave.setMinimumSize(new Dimension(32, 32));
+        btnSave.setMaximumSize(new Dimension(32, 32));
+        btnSave.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnSave.setMargin(new Insets(0, 0, 0, 0));
+        btnSave.setBorder(BorderFactory.createEmptyBorder());
+        btnSave.setBorderPainted(false);
+        btnSave.setFocusPainted(false);
 
         btnC.addActionListener(e -> {
-            List<core.Part> sel = canvas.getSelectedParts();
-            if (sel == null || sel.isEmpty()) {
-                JOptionPane.showMessageDialog(frame, "请先右键框选要复制的部件！", "提示", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            canvas.startClipboard(sel);
+            // 复制功能已移至 Ctrl+C
         });
 
-        btnV.addActionListener(e -> {
+        btnSave.addActionListener(e -> {
             List<core.Part> pasted = canvas.pasteClipboard();
             if (pasted != null && !pasted.isEmpty()) {
                 updateParts(parts);
@@ -74,7 +66,7 @@ public class SavePreview {
         });
 
         topPanel.add(btnC);
-        topPanel.add(btnV);
+        topPanel.add(btnSave);
 
         canvas = new PartCanvas();
 
@@ -168,33 +160,178 @@ public class SavePreview {
         private int layoutCols, layoutRows;
         private double scale = 1.0;
 
+        // 平移偏移量（像素）
+        private int panX = 0;
+        private int panY = 0;
+
+        // 按住WASD持续移动相关
+        private javax.swing.Timer panTimer;
+        private int panDirectionX = 0; // -1左, 0不动, 1右
+        private int panDirectionY = 0; // -1上, 0不动, 1下
+        private static final long PAN_DURATION_MS = 6000; // 横跨整个屏幕用时6秒
+
+        // 撤销/重做
+        private List<List<core.Part>> undoStack = new ArrayList<>();
+        private List<List<core.Part>> redoStack = new ArrayList<>();
+
         // 剪贴板相关
         private List<core.Part> clipboardParts = new ArrayList<>();
         private boolean clipboardActive = false;
-        private int clipboardAnchorCol = -1, clipboardAnchorRow = -1;  // 选中组左下角在格子中的列/行
-        private int clipboardMouseCol = 0, clipboardMouseRow = 0;      // 鼠标当前所在格子
+        private int clipboardAnchorCol = -1, clipboardAnchorRow = -1;
+        private int clipboardMouseCol = 0, clipboardMouseRow = 0;
 
         PartCanvas() {
             setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
-            // 使用 InputMap/ActionMap 处理键盘事件（不依赖焦点）
+            // 初始化持续移动定时器
+            panTimer = new javax.swing.Timer(16, e -> {
+                if (panDirectionX == 0 && panDirectionY == 0) return;
+                computeLayout();
+                int effectiveWidth = getWidth() - 40; // 左右各20 margin
+                if (effectiveWidth <= 0) effectiveWidth = 1;
+                double pixelsPerMs = (double) effectiveWidth / PAN_DURATION_MS;
+                int deltaX = (int) (panDirectionX * pixelsPerMs * 16);
+                int deltaY = (int) (panDirectionY * pixelsPerMs * 16);
+                panX += deltaX;
+                panY += deltaY;
+                repaint();
+            });
+            panTimer.setRepeats(true);
+
             InputMap inputMap = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
             ActionMap actionMap = getActionMap();
 
+            // X 键镜像剪贴板
             inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, 0), "mirrorClipboard");
             actionMap.put("mirrorClipboard", new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    if (clipboardActive) {
+                    if (clipboardActive && !clipboardParts.isEmpty()) {
                         core.mirrorPartsX(clipboardParts);
+                        recalcClipboardAnchor();
                         repaint();
                     }
+                }
+            });
+
+            // WASD 按住持续移动：按下启动方向，释放停止
+            // 使用按下/释放 KeyStroke
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, false), "panWPress");
+            actionMap.put("panWPress", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    panDirectionY = 1;
+                    startPanTimer();
+                }
+            });
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, true), "panWRelease");
+            actionMap.put("panWRelease", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (panDirectionY > 0) panDirectionY = 0;
+                    stopPanTimerIfNeeded();
+                }
+            });
+            // S
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0, false), "panSPress");
+            actionMap.put("panSPress", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    panDirectionY = -1;
+                    startPanTimer();
+                }
+            });
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0, true), "panSRelease");
+            actionMap.put("panSRelease", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (panDirectionY < 0) panDirectionY = 0;
+                    stopPanTimerIfNeeded();
+                }
+            });
+            // A
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, false), "panAPress");
+            actionMap.put("panAPress", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    panDirectionX = 1;
+                    startPanTimer();
+                }
+            });
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, true), "panARelease");
+            actionMap.put("panARelease", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (panDirectionX > 0) panDirectionX = 0;
+                    stopPanTimerIfNeeded();
+                }
+            });
+            // D
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, false), "panDPress");
+            actionMap.put("panDPress", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    panDirectionX = -1;
+                    startPanTimer();
+                }
+            });
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, true), "panDRelease");
+            actionMap.put("panDRelease", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (panDirectionX < 0) panDirectionX = 0;
+                    stopPanTimerIfNeeded();
+                }
+            });
+
+            // 撤销 Ctrl+Z
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()), "undo");
+            actionMap.put("undo", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    undo();
+                }
+            });
+            // 重做 Ctrl+Y
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()), "redo");
+            actionMap.put("redo", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    redo();
                 }
             });
 
             MouseAdapter ma = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
+                    if (clipboardActive && SwingUtilities.isRightMouseButton(e)) {
+                        cancelClipboard();
+                        return;
+                    }
+                    // 左键放置：将复制的部件添加到列表末尾并结束预览
+                    if (clipboardActive && SwingUtilities.isLeftMouseButton(e)) {
+                        computeLayout();
+                        int[] grid = new int[2];
+                        screenToGrid(e.getX(), e.getY(), grid);
+                        int targetCol = grid[0];
+                        int targetRow = grid[1];
+                        int offsetCol = targetCol - clipboardAnchorCol;
+                        int offsetRow = targetRow - clipboardAnchorRow;
+                        saveState();
+                        for (core.Part p : clipboardParts) {
+                            int newX = p.x + offsetCol;
+                            int newY = p.y - offsetRow;
+                            parts.add(new core.Part(p.id, p.skin, newX, newY, p.orientation, p.flipped));
+                        }
+                        clipboardActive = false;
+                        clipboardParts.clear();
+                        clipboardAnchorCol = -1;
+                        clipboardAnchorRow = -1;
+                        clipboardMouseCol = 0;
+                        clipboardMouseRow = 0;
+                        repaint();
+                        return;
+                    }
                     if (SwingUtilities.isRightMouseButton(e)) {
                         dragStart = e.getPoint();
                         dragEnd = e.getPoint();
@@ -251,6 +388,18 @@ public class SavePreview {
             addMouseWheelListener(ma);
         }
 
+        private void startPanTimer() {
+            if (!panTimer.isRunning()) {
+                panTimer.start();
+            }
+        }
+
+        private void stopPanTimerIfNeeded() {
+            if (panDirectionX == 0 && panDirectionY == 0) {
+                panTimer.stop();
+            }
+        }
+
         private void computeLayout() {
             if (parts == null || parts.isEmpty()) {
                 layoutMinX = 0; layoutMinY = 0; layoutMaxY = 0;
@@ -292,8 +441,8 @@ public class SavePreview {
 
             int gridPixelW = layoutCols * layoutCellSize;
             int gridPixelH = layoutRows * layoutCellSize;
-            layoutOffsetX = margin + (panelW - gridPixelW) / 2;
-            layoutOffsetY = margin + (panelH - gridPixelH) / 2;
+            layoutOffsetX = margin + (panelW - gridPixelW) / 2 + panX;
+            layoutOffsetY = margin + (panelH - gridPixelH) / 2 + panY;
         }
 
         private void screenToGrid(int sx, int sy, int[] colRow) {
@@ -348,6 +497,89 @@ public class SavePreview {
          * 执行粘贴：根据当前鼠标网格位置偏移生成新的部件列表，并退出预览模式。
          * @return 新生成的部件列表
          */
+        /**
+         * 重新计算剪贴板锚点（基于当前 clipboardParts 的最小网格列/行）
+         */
+        private void recalcClipboardAnchor() {
+            if (clipboardParts.isEmpty()) return;
+            int minCol = Integer.MAX_VALUE;
+            int minRow = Integer.MAX_VALUE;
+            for (core.Part p : clipboardParts) {
+                int col = p.x - layoutMinX;
+                int row = layoutMaxY - p.y;
+                if (col < minCol) minCol = col;
+                if (row < minRow) minRow = row;
+            }
+            clipboardAnchorCol = minCol;
+            clipboardAnchorRow = minRow;
+        }
+
+        /**
+         * 取消剪贴板预览模式，清除所有剪贴板状态和选择状态
+         */
+        private void cancelClipboard() {
+            clipboardActive = false;
+            clipboardParts.clear();
+            clipboardAnchorCol = -1;
+            clipboardAnchorRow = -1;
+            clipboardMouseCol = 0;
+            clipboardMouseRow = 0;
+            selectedParts.clear();
+            hasSelection = false;
+            repaint();
+        }
+
+        /**
+         * 保存当前 parts 快照到撤销栈，清空重做栈
+         */
+        private void saveState() {
+            List<core.Part> snapshot = new ArrayList<>();
+            for (core.Part p : parts) {
+                snapshot.add(new core.Part(p.id, p.skin, p.x, p.y, p.orientation, p.flipped));
+            }
+            undoStack.add(snapshot);
+            if (undoStack.size() > 50) {
+                undoStack.remove(0);
+            }
+            redoStack.clear();
+        }
+
+        /**
+         * 撤销：将 parts 还原为上次快照
+         */
+        private void undo() {
+            if (undoStack.isEmpty()) return;
+            // 保存当前状态到重做栈
+            List<core.Part> snapshot = new ArrayList<>();
+            for (core.Part p : parts) {
+                snapshot.add(new core.Part(p.id, p.skin, p.x, p.y, p.orientation, p.flipped));
+            }
+            redoStack.add(snapshot);
+            // 还原
+            List<core.Part> prev = undoStack.remove(undoStack.size() - 1);
+            parts.clear();
+            parts.addAll(prev);
+            repaint();
+        }
+
+        /**
+         * 重做：将 parts 还原为上上次快照
+         */
+        private void redo() {
+            if (redoStack.isEmpty()) return;
+            // 保存当前状态到撤销栈
+            List<core.Part> snapshot = new ArrayList<>();
+            for (core.Part p : parts) {
+                snapshot.add(new core.Part(p.id, p.skin, p.x, p.y, p.orientation, p.flipped));
+            }
+            undoStack.add(snapshot);
+            // 还原
+            List<core.Part> next = redoStack.remove(redoStack.size() - 1);
+            parts.clear();
+            parts.addAll(next);
+            repaint();
+        }
+
         public List<core.Part> pasteClipboard() {
             if (!clipboardActive || clipboardParts.isEmpty()) return new ArrayList<>();
 
