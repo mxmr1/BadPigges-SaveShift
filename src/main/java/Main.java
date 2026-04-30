@@ -16,6 +16,7 @@ public class Main {
     static String inputFilePath = "";
     static String outputDirPath = "";
     static JTextField inputText;  // 改为静态，方便 TransferHandler 更新
+    static SavePreview preview;   // 预览窗口引用
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("存档方向转换工具");
@@ -215,9 +216,10 @@ public class Main {
                 if (droppedFile.isFile()) {
                     inputFilePath = droppedFile.getAbsolutePath();
                     // 更新界面上的文本框
-                    SwingUtilities.invokeLater(() -> inputText.setText(inputFilePath));
-                    //System.out.println("拖拽文件: " + inputFilePath);
-                    Previer(files.toString());
+                    SwingUtilities.invokeLater(() -> {
+                        inputText.setText(inputFilePath);
+                        showPreview();
+                    });
                     return true;
                 }
             } catch (UnsupportedFlavorException | IOException e) {
@@ -259,9 +261,16 @@ public class Main {
                 return;
             }
 
-            //System.out.println("开始转换存档方向！");
             try {
                 core.convertSave(inputFilePath, outputDirPath);
+
+                // 转换后刷新预览
+                String outputPath = Paths.get(outputDirPath, new File(inputFilePath).getName()).toString();
+                List<core.Part> convertedParts = core.readPartsFromFile(outputPath);
+                if (preview != null) {
+                    preview.updateParts(convertedParts);
+                }
+
                 JOptionPane.showMessageDialog(null, "转换完成！", "成功", JOptionPane.INFORMATION_MESSAGE);
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(null, "转换失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
@@ -270,8 +279,23 @@ public class Main {
         }
     }
 
-    public static void Previer (String inputFile) throws IOException {
-        List<core.Part> partList = core.getPartlist(inputFile);
-        new SavePreview(partList);
+    // 打开预览窗口
+    private static void showPreview() {
+        if (inputFilePath == null || inputFilePath.isEmpty()) return;
+        try {
+            if (!Files.exists(Paths.get(inputFilePath))) return;
+            if (hasAnyExtension(inputFilePath)) return;
+            if (!isValidFormat(inputFilePath)) return;
+
+            List<core.Part> parts = core.readPartsFromFile(inputFilePath);
+            if (parts == null || parts.isEmpty()) return;
+
+            if (preview != null) {
+                preview.dispose();
+            }
+            preview = new SavePreview(parts);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(null, "读取文件失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+        }
     }
 }
