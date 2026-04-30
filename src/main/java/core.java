@@ -233,6 +233,13 @@ public class core {
         }
     }
 
+    /**
+     * 公共镜像X坐标方法，供外部调用（如预览窗口中的 X 键翻转）
+     */
+    public static void mirrorPartsX(List<Part> parts) {
+        mirrorXCoordinates(parts);
+    }
+
     // 写入输出文件
     private static void writePartsToFile(String filename, List<Part> parts) throws IOException {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(filename))) {

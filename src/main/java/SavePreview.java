@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -176,6 +177,21 @@ public class SavePreview {
         PartCanvas() {
             setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
+            // 使用 InputMap/ActionMap 处理键盘事件（不依赖焦点）
+            InputMap inputMap = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+            ActionMap actionMap = getActionMap();
+
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, 0), "mirrorClipboard");
+            actionMap.put("mirrorClipboard", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (clipboardActive) {
+                        core.mirrorPartsX(clipboardParts);
+                        repaint();
+                    }
+                }
+            });
+
             MouseAdapter ma = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -317,8 +333,8 @@ public class SavePreview {
             // 存储相对于锚点的偏移 (dx, dy) 以及原始属性
             clipboardParts.clear();
             for (core.Part p : source) {
-                // 创建浅拷贝只是复制引用，但我们后续需要独立的新 Part，所以这里存储引用，paste 时 new 新对象
-                clipboardParts.add(p);
+                // 深拷贝：创建独立的 Part 对象，避免修改时影响原始列表
+                clipboardParts.add(new core.Part(p.id, p.skin, p.x, p.y, p.orientation, p.flipped));
             }
 
             // 初始时鼠标位置设为锚点
