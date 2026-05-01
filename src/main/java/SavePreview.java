@@ -301,6 +301,17 @@ public class SavePreview {
                 }
             });
 
+            // 复制 Ctrl+C
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()), "copy");
+            actionMap.put("copy", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (selectedParts != null && !selectedParts.isEmpty()) {
+                        startClipboard(selectedParts);
+                    }
+                }
+            });
+
             MouseAdapter ma = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -308,7 +319,7 @@ public class SavePreview {
                         cancelClipboard();
                         return;
                     }
-                    // 左键放置：将复制的部件添加到列表末尾并结束预览
+                    // 左键放置：将复制的部件添加到列表末尾（保留剪贴板用于连续放置）
                     if (clipboardActive && SwingUtilities.isLeftMouseButton(e)) {
                         computeLayout();
                         int[] grid = new int[2];
@@ -323,12 +334,7 @@ public class SavePreview {
                             int newY = p.y - offsetRow;
                             parts.add(new core.Part(p.id, p.skin, newX, newY, p.orientation, p.flipped));
                         }
-                        clipboardActive = false;
-                        clipboardParts.clear();
-                        clipboardAnchorCol = -1;
-                        clipboardAnchorRow = -1;
-                        clipboardMouseCol = 0;
-                        clipboardMouseRow = 0;
+                        // 不取消预览，保持剪贴板状态以支持连续放置
                         repaint();
                         return;
                     }
