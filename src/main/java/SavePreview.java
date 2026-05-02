@@ -1,47 +1,51 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 import javax.imageio.ImageIO;
 
 /**
  * 存档部件预览窗口
+ * 启动后直接打开，支持拖入存档文件加载
  * 根据 Part 的 id、skin、坐标在画布上绘制对应的贴图（或占位色块）
  * 支持右键框选部件和滚轮缩放，选择框会随缩放保持相对位置
- * 顶部有固定的 C/V 按钮
+ * 顶部有"翻转存档"和"S"按钮
  */
 public class SavePreview {
     private JFrame frame;
     private PartCanvas canvas;
-    private List<core.Part> parts;
+    private List<core.Part> parts = new ArrayList<>();
+    private String currentFilePath = "";
+    private String backupDirPath = "";
 
     private static final Map<String, BufferedImage> imageCache = new HashMap<>();
 
-    public SavePreview(List<core.Part> parts) {
-        this.parts = parts;
-        frame = new JFrame("存档预览");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    public SavePreview() {
+        frame = new JFrame("存档预览 - 拖入存档文件开始编辑");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
         topPanel.setBackground(Color.LIGHT_GRAY);
 
-        JButton btnC = new JButton("翻转存档");
-        btnC.setPreferredSize(new Dimension(100, 32));
-        btnC.setMinimumSize(new Dimension(100, 32));
-        btnC.setMaximumSize(new Dimension(100, 32));
-        btnC.setFont(new Font("SansSerif", Font.BOLD, 14));
-        btnC.setMargin(new Insets(0, 0, 0, 0));
-        btnC.setBorder(BorderFactory.createEmptyBorder());
-        btnC.setBorderPainted(false);
-        btnC.setFocusPainted(false);
+        JButton btnFlip = new JButton("翻转存档");
+        btnFlip.setPreferredSize(new Dimension(100, 32));
+        btnFlip.setMinimumSize(new Dimension(100, 32));
+        btnFlip.setMaximumSize(new Dimension(100, 32));
+        btnFlip.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnFlip.setMargin(new Insets(0, 0, 0, 0));
+        btnFlip.setBorder(BorderFactory.createEmptyBorder());
+        btnFlip.setBorderPainted(false);
+        btnFlip.setFocusPainted(false);
 
         JButton btnSave = new JButton("S");
         btnSave.setPreferredSize(new Dimension(32, 32));
@@ -53,30 +57,27 @@ public class SavePreview {
         btnSave.setBorderPainted(false);
         btnSave.setFocusPainted(false);
 
-        btnC.addActionListener(e -> {
-            // 转换存档方向（与 Main 中 startSaveShift 逻辑一致）
-            String inputFile = Main.inputFilePath;
-            if (inputFile == null || inputFile.isEmpty()) {
-                JOptionPane.showMessageDialog(frame, "没有打开的存档文件！", "错误", JOptionPane.ERROR_MESSAGE);
+        btnFlip.addActionListener(e -> {
+            if (currentFilePath.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "请先拖入存档文件！", "提示", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            String backupDir = Main.outputDirPath;
-            if (backupDir == null || backupDir.isEmpty()) {
-                backupDir = inputFile.substring(0, inputFile.lastIndexOf(File.separatorChar));
-            }
+            String backupDir = backupDirPath.isEmpty() ? new File(currentFilePath).getParent() : backupDirPath;
             try {
-                core.convertSave(inputFile, backupDir);
+                core.convertSave(currentFilePath, backupDir);
 
-                // 转换后刷新预览
-                String outputPath = new java.io.File(backupDir, new java.io.File(inputFile).getName()).getPath();
-                java.util.List<core.Part> convertedParts = core.readPartsFromFile(outputPath);
+                // 转换后重新加载
+                String outputPath = new File(backupDir, new File(currentFilePath).getName()).getPath();
+                List<core.Part> convertedParts = core.readPartsFromFile(outputPath);
                 if (convertedParts != null && !convertedParts.isEmpty()) {
                     parts.clear();
                     parts.addAll(convertedParts);
+                    updateFrameTitle();
+                    canvas.resetView();
                     canvas.repaint();
                 }
 
-                JOptionPane.showMessageDialog(frame, "存档方向转换完成！", "成功", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "存档方向转换完成！\n备份位置: " + backupDir, "成功", JOptionPane.INFORMATION_MESSAGE);
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(frame, "转换失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
                 ex.printStackTrace();
@@ -84,24 +85,14 @@ public class SavePreview {
         });
 
         btnSave.addActionListener(e -> {
-            // 保存功能：先备份，再保存当前部件列表到文件
+            if (currentFilePath.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "请先拖入存档文件！", "提示", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            String backupDir = backupDirPath.isEmpty() ? new File(currentFilePath).getParent() : backupDirPath;
             try {
-                String inputFile = Main.inputFilePath;
-                if (inputFile == null || inputFile.isEmpty()) {
-                    JOptionPane.showMessageDialog(frame, "没有可保存的文件路径！", "错误", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                // 1. 创建备份
-                String backupDir = Main.outputDirPath;
-                if (backupDir == null || backupDir.isEmpty()) {
-                    // 如果备份目录为空，使用文件所在目录
-                    backupDir = inputFile.substring(0, inputFile.lastIndexOf(File.separatorChar));
-                }
-                core.backupFile(inputFile, backupDir);
-
-                // 2. 将当前部件列表保存到原文件
-                core.writePartsToFile(inputFile, parts);
-
+                core.backupFile(currentFilePath, backupDir);
+                core.writePartsToFile(currentFilePath, parts);
                 JOptionPane.showMessageDialog(frame, "备份并保存完成！\n备份位置: " + backupDir, "成功", JOptionPane.INFORMATION_MESSAGE);
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(frame, "保存失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
@@ -109,7 +100,7 @@ public class SavePreview {
             }
         });
 
-        topPanel.add(btnC);
+        topPanel.add(btnFlip);
         topPanel.add(btnSave);
 
         canvas = new PartCanvas();
@@ -136,6 +127,80 @@ public class SavePreview {
 
     public void dispose() {
         frame.dispose();
+    }
+
+    private void updateFrameTitle() {
+        String fileName = currentFilePath.isEmpty() ? "无文件" : new File(currentFilePath).getName();
+        frame.setTitle("存档预览 - " + fileName + " (" + parts.size() + " 个部件)");
+    }
+
+    /**
+     * 加载存档文件，更新画布内容
+     */
+    boolean loadFile(String filePath) {
+        if (filePath == null || filePath.isEmpty()) return false;
+        try {
+            if (!Files.exists(Paths.get(filePath))) {
+                JOptionPane.showMessageDialog(frame, "文件不存在: " + filePath, "错误", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+            if (hasAnyExtension(filePath)) {
+                JOptionPane.showMessageDialog(frame, "文件格式错误：不允许使用带后缀的文件名！", "错误", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+            if (!isValidFormat(filePath)) {
+                JOptionPane.showMessageDialog(frame, "文件内容格式错误！\n要求：每行6个逗号分隔的整数", "错误", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+
+            List<core.Part> newParts = core.readPartsFromFile(filePath);
+            if (newParts == null || newParts.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "文件为空或没有有效数据！", "错误", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+
+            currentFilePath = filePath;
+            backupDirPath = new File(filePath).getParent();
+            parts.clear();
+            parts.addAll(newParts);
+            canvas.resetView();
+            canvas.repaint();
+            updateFrameTitle();
+            return true;
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(frame, "读取文件失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+    }
+
+    private static boolean hasAnyExtension(String filePath) {
+        String fileName = new File(filePath).getName();
+        int lastDotIndex = fileName.lastIndexOf('.');
+        return lastDotIndex > 0;
+    }
+
+    private static boolean isValidFormat(String filePath) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            int lineNum = 0;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                String[] parts = line.split(",");
+                if (parts.length != 6) return false;
+                for (int i = 0; i < 6; i++) {
+                    try {
+                        Integer.parseInt(parts[i].trim());
+                    } catch (NumberFormatException e) {
+                        return false;
+                    }
+                }
+                lineNum++;
+            }
+            return lineNum > 0;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private static BufferedImage loadImage(int id, int skin) {
@@ -226,6 +291,33 @@ public class SavePreview {
 
         PartCanvas() {
             setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+
+            // 支持拖入文件
+            setTransferHandler(new TransferHandler() {
+                @Override
+                public boolean canImport(TransferSupport support) {
+                    return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
+                }
+
+                @Override
+                public boolean importData(TransferSupport support) {
+                    if (!canImport(support)) return false;
+                    Transferable t = support.getTransferable();
+                    try {
+                        @SuppressWarnings("unchecked")
+                        List<File> files = (List<File>) t.getTransferData(DataFlavor.javaFileListFlavor);
+                        if (files.isEmpty()) return false;
+                        File droppedFile = files.get(0);
+                        if (droppedFile.isFile()) {
+                            SwingUtilities.invokeLater(() -> loadFile(droppedFile.getAbsolutePath()));
+                            return true;
+                        }
+                    } catch (UnsupportedFlavorException | IOException e) {
+                        e.printStackTrace();
+                    }
+                    return false;
+                }
+            });
 
             // 初始化持续移动定时器
             panTimer = new javax.swing.Timer(16, e -> {
@@ -363,7 +455,7 @@ public class SavePreview {
                         cancelClipboard();
                         return;
                     }
-                    // 左键放置：将复制的部件添加到列表末尾（保留剪贴板用于连续放置）
+                    // 左键放置：实现粘贴逻辑，处理替换规则
                     if (clipboardActive && SwingUtilities.isLeftMouseButton(e)) {
                         computeLayout();
                         int[] grid = new int[2];
@@ -373,12 +465,7 @@ public class SavePreview {
                         int offsetCol = targetCol - clipboardAnchorCol;
                         int offsetRow = targetRow - clipboardAnchorRow;
                         saveState();
-                        for (core.Part p : clipboardParts) {
-                            int newX = p.x + offsetCol;
-                            int newY = p.y - offsetRow;
-                            parts.add(new core.Part(p.id, p.skin, newX, newY, p.orientation, p.flipped));
-                        }
-                        // 不取消预览，保持剪贴板状态以支持连续放置
+                        pasteWithReplacement(offsetCol, offsetRow);
                         repaint();
                         return;
                     }
@@ -436,6 +523,16 @@ public class SavePreview {
             addMouseListener(ma);
             addMouseMotionListener(ma);
             addMouseWheelListener(ma);
+        }
+
+        public void resetView() {
+            scale = 1.0;
+            panX = 0;
+            panY = 0;
+            selectedParts.clear();
+            hasSelection = false;
+            clipboardActive = false;
+            clipboardParts.clear();
         }
 
         private void startPanTimer() {
@@ -588,6 +685,66 @@ public class SavePreview {
         }
 
         /**
+         * 判断部件是否为框架类（id=5或6）
+         */
+        private boolean isFramePart(core.Part p) {
+            return p.id == 5 || p.id == 6;
+        }
+
+        /**
+         * 按照替换规则粘贴剪贴板中的部件
+         * @param offsetCol 列偏移
+         * @param offsetRow 行偏移
+         */
+        private void pasteWithReplacement(int offsetCol, int offsetRow) {
+            // 构建粘贴部件列表（转换坐标后的新部件，保留所有部件，不去重）
+            List<core.Part> newParts = new ArrayList<>();
+            for (core.Part p : clipboardParts) {
+                int newX = p.x + offsetCol;
+                int newY = p.y - offsetRow;
+                newParts.add(new core.Part(p.id, p.skin, newX, newY, p.orientation, p.flipped));
+            }
+
+            // 需要被删除的原有部件索引
+            Set<Integer> indicesToRemove = new HashSet<>();
+
+            // 对于每个粘贴部件，检查其目标坐标下的所有原部件，决定替换或共存
+            for (core.Part pastePart : newParts) {
+                boolean pasteIsFrame = isFramePart(pastePart);
+
+                // 收集该坐标下的所有原有部件索引
+                List<Integer> sameCoordIndices = new ArrayList<>();
+                for (int i = 0; i < parts.size(); i++) {
+                    core.Part p = parts.get(i);
+                    if (p.x == pastePart.x && p.y == pastePart.y) {
+                        sameCoordIndices.add(i);
+                    }
+                }
+
+                // 处理每个原有部件：同类型标记删除，不同类型保持共存
+                for (int idx : sameCoordIndices) {
+                    core.Part existingPart = parts.get(idx);
+                    boolean existingIsFrame = isFramePart(existingPart);
+                    if (existingIsFrame == pasteIsFrame) {
+                        // 同类型 → 替换
+                        indicesToRemove.add(idx);
+                    }
+                    // 不同类型 → 共存（不删除）
+                }
+            }
+
+            // 从后往前删除
+            List<Integer> sortedRemove = new ArrayList<>(indicesToRemove);
+            Collections.sort(sortedRemove, Collections.reverseOrder());
+            for (int idx : sortedRemove) {
+                parts.remove(idx);
+            }
+
+            // 添加所有粘贴部件（保留剪贴板状态以支持连续放置）
+            parts.addAll(newParts);
+        }
+
+        /**
          * 撤销：将 parts 还原为上次快照
          */
         private void undo() {
@@ -697,6 +854,13 @@ public class SavePreview {
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
             if (parts == null || parts.isEmpty()) {
+                g2.setColor(Color.GRAY);
+                g2.setFont(new Font("SansSerif", Font.PLAIN, 24));
+                String msg = "拖入存档文件以开始编辑";
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(msg)) / 2;
+                int y = getHeight() / 2;
+                g2.drawString(msg, x, y);
                 drawSelectionRect(g2);
                 return;
             }
