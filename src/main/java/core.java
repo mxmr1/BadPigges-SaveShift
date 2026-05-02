@@ -241,7 +241,7 @@ public class core {
     }
 
     // 写入输出文件
-    private static void writePartsToFile(String filename, List<Part> parts) throws IOException {
+    public static void writePartsToFile(String filename, List<Part> parts) throws IOException {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(filename))) {
             for (Part p : parts) {
                 bw.write(String.format("%d,%d,%d,%d,%d,%d",
