@@ -21,9 +21,9 @@ import javax.imageio.ImageIO;
  * 顶部有"翻转存档"和"S"按钮
  */
 public class SavePreview {
-    private JFrame frame;
+    private final JFrame frame;
     private PartCanvas canvas;
-    private List<core.Part> parts = new ArrayList<>();
+    private final List<core.Part> parts = new ArrayList<>();
     private String currentFilePath = "";
     private String backupDirPath = "";
 
@@ -69,7 +69,7 @@ public class SavePreview {
                 // 转换后重新加载
                 String outputPath = new File(backupDir, new File(currentFilePath).getName()).getPath();
                 List<core.Part> convertedParts = core.readPartsFromFile(outputPath);
-                if (convertedParts != null && !convertedParts.isEmpty()) {
+                if (!convertedParts.isEmpty()) {
                     parts.clear();
                     parts.addAll(convertedParts);
                     updateFrameTitle();
@@ -110,23 +110,6 @@ public class SavePreview {
 
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-    }
-
-    public void updateParts(List<core.Part> newParts) {
-        this.parts = newParts;
-        canvas.repaint();
-    }
-
-    public List<core.Part> getParts() {
-        return parts;
-    }
-
-    public List<core.Part> getSelectedParts() {
-        return canvas.getSelectedParts();
-    }
-
-    public void dispose() {
-        frame.dispose();
     }
 
     private void updateFrameTitle() {

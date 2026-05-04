@@ -120,11 +120,6 @@ public class core {
         //System.out.println("处理完成！结果已保存至 " + outputPath);
     }
 
-    public static final List<Part> getPartlist(String inputFile)throws IOException{
-        List<Part> parts = readPartsFromFile(inputFile);
-        return parts;
-    }
-
     public core(String inputFile) {
     //System.out.println(inputFile);
     makeshift(inputFile);
