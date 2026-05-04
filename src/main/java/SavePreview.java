@@ -931,41 +931,6 @@ public class SavePreview {
             repaint();
         }
 
-        public List<core.Part> pasteClipboard() {
-            if (!clipboardActive || clipboardParts.isEmpty()) return new ArrayList<>();
-
-            int offsetCol = clipboardMouseCol - clipboardAnchorCol;
-            int offsetRow = clipboardMouseRow - clipboardAnchorRow;
-
-            List<core.Part> result = new ArrayList<>();
-            for (core.Part p : clipboardParts) {
-                int newX = p.x + offsetCol;
-                // 网格 row 与 y 反向：row = layoutMaxY - y
-                // 所以 row 增加 offsetRow 等价于 y 减少 offsetRow
-                int newY = p.y - offsetRow;
-                result.add(new core.Part(p.id, p.skin, newX, newY, p.orientation, p.flipped));
-            }
-
-            clipboardActive = false;
-            clipboardParts.clear();
-            repaint();
-            return result;
-        }
-
-        private Rectangle getPartScreenRect(core.Part p) {
-            int col = p.x - layoutMinX;
-            int row = layoutMaxY - p.y;
-            int x0 = (int)Math.round(layoutOffsetX + col * layoutCellSize);
-            int y0 = (int)Math.round(layoutOffsetY + row * layoutCellSize);
-            int x1 = (int)Math.round(layoutOffsetX + (col + 1) * layoutCellSize);
-            int y1 = (int)Math.round(layoutOffsetY + (row + 1) * layoutCellSize);
-            int drawW = x1 - x0;
-            int drawH = y1 - y0;
-            if (drawW < 1) drawW = 1;
-            if (drawH < 1) drawH = 1;
-            return new Rectangle(x0, y0, drawW, drawH);
-        }
-
         private void updateSelection() {
             selectedParts.clear();
             hasSelection = false;
@@ -997,10 +962,6 @@ public class SavePreview {
                     selectedParts.add(p);
                 }
             }
-        }
-
-        public List<core.Part> getSelectedParts() {
-            return selectedParts;
         }
 
         @Override
