@@ -137,7 +137,7 @@ public class SavePreview {
             }
 
             List<core.Part> newParts = core.readPartsFromFile(filePath);
-            if (newParts == null || newParts.isEmpty()) {
+            if (newParts.isEmpty()) {
                 JOptionPane.showMessageDialog(frame, "文件为空或没有有效数据！", "错误", JOptionPane.ERROR_MESSAGE);
                 return false;
             }
