@@ -238,6 +238,11 @@ public class core {
      */
     public static void mirrorPartsX(List<Part> parts) {
         mirrorXCoordinates(parts);
+        // 对每个部件也执行朝向和翻转转换，与 convertSave 一致
+        for (Part p : parts) {
+            handleSpecialFlipped(p);
+            convertOrientation(p);
+        }
     }
 
     // 写入输出文件

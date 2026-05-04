@@ -47,10 +47,10 @@ public class SavePreview {
         btnFlip.setBorderPainted(false);
         btnFlip.setFocusPainted(false);
 
-        JButton btnSave = new JButton("S");
-        btnSave.setPreferredSize(new Dimension(32, 32));
-        btnSave.setMinimumSize(new Dimension(32, 32));
-        btnSave.setMaximumSize(new Dimension(32, 32));
+        JButton btnSave = new JButton("保存存档");
+        btnSave.setPreferredSize(new Dimension(100, 32));
+        btnSave.setMinimumSize(new Dimension(100, 32));
+        btnSave.setMaximumSize(new Dimension(100, 32));
         btnSave.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnSave.setMargin(new Insets(0, 0, 0, 0));
         btnSave.setBorder(BorderFactory.createEmptyBorder());
@@ -281,7 +281,7 @@ public class SavePreview {
         private javax.swing.Timer panTimer;
         private int panDirectionX = 0; // -1左, 0不动, 1右
         private int panDirectionY = 0; // -1上, 0不动, 1下
-        private static final long PAN_DURATION_MS = 6000; // 横跨整个屏幕用时6秒
+        private static final long PAN_DURATION_MS = 1500; // 横跨整个屏幕用时1.5秒（原6000ms，提速4倍）
 
         // 撤销/重做
         private List<List<core.Part>> undoStack = new ArrayList<>();
@@ -296,6 +296,14 @@ public class SavePreview {
         // 基础单位像素（每个坐标单位对应多少像素）
         private static final int BASE_UNIT_SIZE = 8;
 
+        // 惯性缩放相关
+        private double targetScale = 1.0;
+        private javax.swing.Timer inertiaScaleTimer;
+        private boolean isZoomingOut = false;
+        private int zoomOriginX;
+        private int zoomOriginY;
+        private static final double INERTIA_FACTOR = 0.15;
+        private static final double INERTIA_THRESHOLD = 0.0001;
         PartCanvas() {
             setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
@@ -340,6 +348,12 @@ public class SavePreview {
                 repaint();
             });
             panTimer.setRepeats(true);
+
+            // 初始化惯性缩放定时器
+            inertiaScaleTimer = new javax.swing.Timer(16, e -> {
+                updateScaleWithInertia();
+            });
+            inertiaScaleTimer.setRepeats(true);
 
             InputMap inputMap = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
             ActionMap actionMap = getActionMap();
@@ -478,6 +492,12 @@ public class SavePreview {
             MouseAdapter ma = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
+                    // 任何鼠标点击都打断惯性缩放
+                    if (inertiaScaleTimer.isRunning()) {
+                        // 立即完成剩余的缩放过渡
+                        scale = targetScale;
+                        inertiaScaleTimer.stop();
+                    }
                     if (clipboardActive && SwingUtilities.isRightMouseButton(e)) {
                         cancelClipboard();
                         return;
@@ -522,6 +542,17 @@ public class SavePreview {
                         clipboardMouseRow = grid[1];
                         repaint();
                     }
+                    // 如果正在惯性放大中，更新缩放原点为新的鼠标位置，
+                    // 并立即调整视角，使当前鼠标下的世界坐标在新原点下保持不变
+                    if (isZoomingOut && inertiaScaleTimer.isRunning()) {
+                        double currentCellSize = Math.max(1, BASE_UNIT_SIZE * scale);
+                        double worldX = (e.getX() - (baseOffsetX + panX)) / currentCellSize;
+                        double worldY = (e.getY() - (baseOffsetY + panY)) / currentCellSize;
+                        zoomOriginX = e.getX();
+                        zoomOriginY = e.getY();
+                        panX = (int) Math.round(e.getX() - worldX * currentCellSize - baseOffsetX);
+                        panY = (int) Math.round(e.getY() - worldY * currentCellSize - baseOffsetY);
+                    }
                 }
 
                 @Override
@@ -538,37 +569,39 @@ public class SavePreview {
                 public void mouseWheelMoved(MouseWheelEvent e) {
                     double oldScale = scale;
                     int notches = e.getWheelRotation();
-                    // 使用指数缩放，每滚动一下缩放 1.15 倍，更平滑自然
+                    // 计算目标缩放值，增大灵敏度
+                    double newScale = oldScale;
                     if (notches > 0) {
-                        scale /= Math.pow(1.15, notches);
+                        newScale /= Math.pow(1.8, notches);
                     } else {
-                        scale *= Math.pow(1.15, -notches);
+                        newScale *= Math.pow(1.8, -notches);
                     }
-                    if (scale < 0.05) scale = 0.05;
-                    if (scale > 10.0) scale = 10.0;
-                    if (scale != oldScale) {
-                        // 以窗口中心为缩放原点，调整 panX/panY
-                        int margin = 20;
-                        int panelW = getWidth() - 2 * margin;
-                        int panelH = getHeight() - 2 * margin;
-                        int centerScreenX = margin + panelW / 2;
-                        int centerScreenY = margin + panelH / 2;
+                    if (newScale < 0.001) newScale = 0.001;
+                    if (newScale > 100.0) newScale = 100.0;
+                    targetScale = newScale;
 
-                        double oldCellSize = Math.max(1, BASE_UNIT_SIZE * oldScale);
-                        double newCellSize = Math.max(1, BASE_UNIT_SIZE * scale);
+                    if (newScale != oldScale) {
+                        // 缩小（滚轮向下）以屏幕中心为原点
+                        // 放大（滚轮向上）以鼠标位置为原点
+                        if (notches > 0) {
+                            // 缩小：以屏幕中心为原点
+                            isZoomingOut = false;
+                            int margin = 20;
+                            int panelW = getWidth() - 2 * margin;
+                            int panelH = getHeight() - 2 * margin;
+                            zoomOriginX = margin + panelW / 2;
+                            zoomOriginY = margin + panelH / 2;
+                        } else {
+                            // 放大：以鼠标位置为原点
+                            isZoomingOut = true;
+                            zoomOriginX = e.getX();
+                            zoomOriginY = e.getY();
+                        }
 
-                        // 缩放前窗口中心对应的世界坐标
-                        double worldX = (centerScreenX - (baseOffsetX + panX)) / oldCellSize;
-                        double worldY = (centerScreenY - (baseOffsetY + panY)) / oldCellSize;
-
-                        // 计算新的 layoutOffset，使同一个世界坐标仍映射到窗口中心
-                        double newLayoutOffsetX = centerScreenX - worldX * newCellSize;
-                        double newLayoutOffsetY = centerScreenY - worldY * newCellSize;
-
-                        panX = (int)Math.round(newLayoutOffsetX - baseOffsetX);
-                        panY = (int)Math.round(newLayoutOffsetY - baseOffsetY);
-
-                        repaint();
+                        // 启动或保持惯性 Timer
+                        if (!inertiaScaleTimer.isRunning()) {
+                            inertiaScaleTimer.start();
+                        }
                     }
                 }
             };
@@ -580,6 +613,10 @@ public class SavePreview {
 
         public void resetView() {
             scale = 1.0;
+            targetScale = 1.0;
+            if (inertiaScaleTimer != null && inertiaScaleTimer.isRunning()) {
+                inertiaScaleTimer.stop();
+            }
             panX = 0.0;
             panY = 0.0;
             baseOffsetX = 0;
@@ -624,8 +661,13 @@ public class SavePreview {
                 scale = Math.min(scaleByWidth, scaleByHeight);
             }
 
-            if (scale < 0.05) scale = 0.05;
-            if (scale > 10.0) scale = 10.0;
+            if (scale < 0.001) scale = 0.001;
+            if (scale > 100.0) scale = 100.0;
+            targetScale = scale;
+
+            if (inertiaScaleTimer != null && inertiaScaleTimer.isRunning()) {
+                inertiaScaleTimer.stop();
+            }
 
             // 计算基准偏移并保存，使画面居中
             layoutCellSize = Math.max(1, BASE_UNIT_SIZE * scale);
@@ -653,6 +695,40 @@ public class SavePreview {
             if (panDirectionX == 0 && panDirectionY == 0) {
                 panTimer.stop();
             }
+        }
+
+                /**
+         * 非线性衰减惯性缩放，每帧按比例逼近目标值
+         */
+        private void updateScaleWithInertia() {
+            double diff = targetScale - scale;
+            if (Math.abs(diff) < INERTIA_THRESHOLD) {
+                scale = targetScale;
+                inertiaScaleTimer.stop();
+                repaint();
+                return;
+            }
+            double oldScale = scale;
+            scale += diff * INERTIA_FACTOR;
+
+            // 限制
+            if (scale < 0.001) scale = 0.001;
+            if (scale > 100.0) scale = 100.0;
+
+            // 根据记录的缩放原点调整 panX/panY
+            double oldCellSize = Math.max(1, BASE_UNIT_SIZE * oldScale);
+            double newCellSize = Math.max(1, BASE_UNIT_SIZE * scale);
+
+            double worldX = (zoomOriginX - (baseOffsetX + panX)) / oldCellSize;
+            double worldY = (zoomOriginY - (baseOffsetY + panY)) / oldCellSize;
+
+            double newLayoutOffsetX = zoomOriginX - worldX * newCellSize;
+            double newLayoutOffsetY = zoomOriginY - worldY * newCellSize;
+
+            panX = (int) Math.round(newLayoutOffsetX - baseOffsetX);
+            panY = (int) Math.round(newLayoutOffsetY - baseOffsetY);
+
+            repaint();
         }
 
         private void computeLayout() {
@@ -896,13 +972,15 @@ public class SavePreview {
         private Rectangle getPartScreenRect(core.Part p) {
             int col = p.x - layoutMinX;
             int row = layoutMaxY - p.y;
-            int canvasX = (int)Math.floor(layoutOffsetX + col * layoutCellSize);
-            int canvasY = (int)Math.floor(layoutOffsetY + row * layoutCellSize);
-            int canvasW = (int)Math.floor(layoutOffsetX + (col + 1) * layoutCellSize) - canvasX;
-            int canvasH = (int)Math.floor(layoutOffsetY + (row + 1) * layoutCellSize) - canvasY;
-            if (canvasW < 1) canvasW = 1;
-            if (canvasH < 1) canvasH = 1;
-            return new Rectangle(canvasX, canvasY, canvasW, canvasH);
+            int x0 = (int)Math.round(layoutOffsetX + col * layoutCellSize);
+            int y0 = (int)Math.round(layoutOffsetY + row * layoutCellSize);
+            int x1 = (int)Math.round(layoutOffsetX + (col + 1) * layoutCellSize);
+            int y1 = (int)Math.round(layoutOffsetY + (row + 1) * layoutCellSize);
+            int drawW = x1 - x0;
+            int drawH = y1 - y0;
+            if (drawW < 1) drawW = 1;
+            if (drawH < 1) drawH = 1;
+            return new Rectangle(x0, y0, drawW, drawH);
         }
 
         private void updateSelection() {
@@ -970,12 +1048,16 @@ public class SavePreview {
             for (core.Part p : parts) {
                 int col = p.x - layoutMinX;
                 int row = layoutMaxY - p.y;
-                int canvasX = (int)Math.floor(offsetX + col * cellSize);
-                int canvasY = (int)Math.floor(offsetY + row * cellSize);
-                int drawSize = (int)Math.floor(offsetX + (col + 1) * cellSize) - canvasX;
-                if (drawSize < 1) drawSize = 1;
+                int x0 = (int)Math.round(offsetX + col * cellSize);
+                int y0 = (int)Math.round(offsetY + row * cellSize);
+                int x1 = (int)Math.round(offsetX + (col + 1) * cellSize);
+                int y1 = (int)Math.round(offsetY + (row + 1) * cellSize);
+                int drawW = x1 - x0;
+                int drawH = y1 - y0;
+                if (drawW < 1) drawW = 1;
+                if (drawH < 1) drawH = 1;
                 BufferedImage img = loadImage(p.id, p.skin);
-                g2.drawImage(img, canvasX, canvasY, drawSize, drawSize, null);
+                g2.drawImage(img, x0, y0, drawW, drawH, null);
             }
 
             // 绘制剪贴板半透明预览（25%透明）
@@ -988,16 +1070,16 @@ public class SavePreview {
                 for (core.Part p : clipboardParts) {
                     int col = (p.x - layoutMinX) + offsetCol;
                     int row = (layoutMaxY - p.y) + offsetRow;
-                    double xD = offsetX + col * cellSize;
-                    double yD = offsetY + row * cellSize;
-                    int canvasX = (int)Math.floor(xD);
-                    int canvasY = (int)Math.floor(yD);
-                    int canvasW = (int)Math.floor(offsetX + (col + 1) * cellSize) - canvasX;
-                    int canvasH = (int)Math.floor(offsetY + (row + 1) * cellSize) - canvasY;
-                    if (canvasW < 1) canvasW = 1;
-                    if (canvasH < 1) canvasH = 1;
+                    int x0 = (int)Math.round(offsetX + col * cellSize);
+                    int y0 = (int)Math.round(offsetY + row * cellSize);
+                    int x1 = (int)Math.round(offsetX + (col + 1) * cellSize);
+                    int y1 = (int)Math.round(offsetY + (row + 1) * cellSize);
+                    int drawW = x1 - x0;
+                    int drawH = y1 - y0;
+                    if (drawW < 1) drawW = 1;
+                    if (drawH < 1) drawH = 1;
                     BufferedImage img = loadImage(p.id, p.skin);
-                    g2.drawImage(img, canvasX, canvasY, canvasW, canvasH, null);
+                    g2.drawImage(img, x0, y0, drawW, drawH, null);
                 }
 
                 g2.setComposite(oldComposite);
@@ -1007,15 +1089,15 @@ public class SavePreview {
             for (core.Part p : selectedParts) {
                 int col = p.x - layoutMinX;
                 int row = layoutMaxY - p.y;
-                double xD = offsetX + col * cellSize;
-                double yD = offsetY + row * cellSize;
-                int canvasX = (int)Math.floor(xD);
-                int canvasY = (int)Math.floor(yD);
-                int canvasW = (int)Math.floor(offsetX + (col + 1) * cellSize) - canvasX;
-                int canvasH = (int)Math.floor(offsetY + (row + 1) * cellSize) - canvasY;
-                if (canvasW < 1) canvasW = 1;
-                if (canvasH < 1) canvasH = 1;
-                g2.fillRect(canvasX, canvasY, canvasW, canvasH);
+                int x0 = (int)Math.round(offsetX + col * cellSize);
+                int y0 = (int)Math.round(offsetY + row * cellSize);
+                int x1 = (int)Math.round(offsetX + (col + 1) * cellSize);
+                int y1 = (int)Math.round(offsetY + (row + 1) * cellSize);
+                int drawW = x1 - x0;
+                int drawH = y1 - y0;
+                if (drawW < 1) drawW = 1;
+                if (drawH < 1) drawH = 1;
+                g2.fillRect(x0, y0, drawW, drawH);
             }
 
             drawSelectionRect(g2);
@@ -1038,14 +1120,14 @@ public class SavePreview {
             }
 
             if (hasSelection) {
-                int x1 = (int)Math.floor(layoutOffsetX + selMinCol * layoutCellSize);
-                int y1 = (int)Math.floor(layoutOffsetY + selMinRow * layoutCellSize);
-                int x2 = (int)Math.floor(layoutOffsetX + (selMaxCol + 1) * layoutCellSize);
-                int y2 = (int)Math.floor(layoutOffsetY + (selMaxRow + 1) * layoutCellSize);
-                int rx = Math.min(x1, x2);
-                int ry = Math.min(y1, y2);
-                int rw = Math.abs(x2 - x1);
-                int rh = Math.abs(y2 - y1);
+                int x0 = (int)Math.round(layoutOffsetX + selMinCol * layoutCellSize);
+                int y0 = (int)Math.round(layoutOffsetY + selMinRow * layoutCellSize);
+                int x1 = (int)Math.round(layoutOffsetX + (selMaxCol + 1) * layoutCellSize);
+                int y1 = (int)Math.round(layoutOffsetY + (selMaxRow + 1) * layoutCellSize);
+                int rx = Math.min(x0, x1);
+                int ry = Math.min(y0, y1);
+                int rw = Math.abs(x1 - x0);
+                int rh = Math.abs(y1 - y0);
                 if (rw > 0 && rh > 0) {
                     g2.setColor(new Color(0, 120, 255, 50));
                     g2.fillRect(rx, ry, rw, rh);
