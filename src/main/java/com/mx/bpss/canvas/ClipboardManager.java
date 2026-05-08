@@ -55,30 +55,26 @@ public class ClipboardManager {
     }
 
     /**
-     * 设置外部剪贴板数据（用于跨视图粘贴）
+     * 设置外部剪贴板数据（用于跨视图粘贴，使用绝对坐标锚点）
+     * @param externalParts 外部部件列表（包含绝对坐标）
+     * @param anchorAbsX  剪贴板中最左上角部件的绝对 x 坐标
+     * @param anchorAbsY  剪贴板中最左上角部件的绝对 y 坐标
      */
-    public void setExternalClipboard(List<core.Part> externalParts, int externalMinX, int externalMaxY) {
-        this.layoutMinX = externalMinX;
-        this.layoutMaxY = externalMaxY;
+    public void setExternalClipboard(List<core.Part> externalParts, int anchorAbsX, int anchorAbsY) {
         if (externalParts == null || externalParts.isEmpty()) {
             cancel();
             return;
         }
+        // 深拷贝
         clipboardParts.clear();
         for (core.Part p : externalParts) {
             clipboardParts.add(new core.Part(p.id, p.skin, p.x, p.y, p.orientation, p.flipped));
         }
-        int minCol = Integer.MAX_VALUE, minRow = Integer.MAX_VALUE;
-        for (core.Part p : clipboardParts) {
-            int col = p.x - layoutMinX;
-            int row = layoutMaxY - p.y;
-            if (col < minCol) minCol = col;
-            if (row < minRow) minRow = row;
-        }
-        anchorCol = minCol;
-        anchorRow = minRow;
-        mouseCol = minCol;
-        mouseRow = minRow;
+        // 将绝对坐标锚点转换为当前视图的网格坐标
+        anchorCol = anchorAbsX - layoutMinX;
+        anchorRow = layoutMaxY - anchorAbsY;
+        mouseCol = anchorCol;
+        mouseRow = anchorRow;
         active = true;
     }
 

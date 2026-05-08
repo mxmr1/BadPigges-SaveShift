@@ -55,12 +55,15 @@ public class PartCanvas extends JPanel {
 
     // ========== 跨视图全局剪贴板（静态）==========
     private static List<core.Part> globalClipboardParts = null;
-    private static int globalClipMinX = 0;
-    private static int globalClipMaxY = 0;
+    private static int globalClipAnchorX = 0;
+    private static int globalClipAnchorY = 0;
 
     public static List<core.Part> getGlobalClipboard() { return globalClipboardParts; }
-    public static int getGlobalClipMinX() { return globalClipMinX; }
-    public static int getGlobalClipMaxY() { return globalClipMaxY; }
+    public static int getGlobalClipAnchorX() { return globalClipAnchorX; }
+    public static int getGlobalClipAnchorY() { return globalClipAnchorY; }
+
+    // ========== 跨视图预览（用于在目标视图中跟随鼠标显示）==========
+    private List<core.Part> crossViewPreviewParts = null;
 
     public PartCanvas(Consumer<String> titleUpdater, Runnable fileChangedCallback) {
         this.titleUpdater = titleUpdater;
@@ -331,6 +334,29 @@ public class PartCanvas extends JPanel {
             g2.setComposite(oldComposite);
         }
 
+        // 绘制跨视图预览（半透明）
+        if (crossViewPreviewParts != null && !crossViewPreviewParts.isEmpty()) {
+            Composite oldComposite = g2.getComposite();
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
+
+            for (core.Part p : crossViewPreviewParts) {
+                int col = p.x - layoutMinX;
+                int row = layoutMaxY - p.y;
+                int x0 = (int) Math.round(offsetX + col * cellSize);
+                int y0 = (int) Math.round(offsetY + row * cellSize);
+                int x1 = (int) Math.round(offsetX + (col + 1) * cellSize);
+                int y1 = (int) Math.round(offsetY + (row + 1) * cellSize);
+                int drawW = x1 - x0;
+                int drawH = y1 - y0;
+                if (drawW < 1) drawW = 1;
+                if (drawH < 1) drawH = 1;
+                BufferedImage img = loadImage(p.id, p.skin);
+                g2.drawImage(img, x0, y0, drawW, drawH, null);
+            }
+
+            g2.setComposite(oldComposite);
+        }
+
         // 绘制选中部件高亮
         g2.setColor(new Color(0, 200, 255, 80));
         for (core.Part p : selectionMgr.getSelectedParts()) {
@@ -509,25 +535,38 @@ public class PartCanvas extends JPanel {
                 // 打断惯性缩放
                 zoomCtrl.stop();
 
-                // ===== 新增：中键切换视图并显示预览 =====
+                // ===== 中键：切换视图（不做注入，只请求焦点） =====
                 if (SwingUtilities.isMiddleMouseButton(e)) {
                     requestFocusInWindow();
-                    // 如果全局有剪贴板且本地未激活，注入并预览
-                    if (!clipboardMgr.isActive() && globalClipboardParts != null && !globalClipboardParts.isEmpty()) {
-                        computeLayout();
-                        clipboardMgr.setExternalClipboard(globalClipboardParts, globalClipMinX, globalClipMaxY);
-                        repaint();
-                    }
-                    return;  // 跳过其他处理
+                    return;
                 }
 
+                // ===== 左键：优先处理全局剪贴板粘贴（使用绝对坐标） =====
                 if (SwingUtilities.isLeftMouseButton(e)) {
-                    // 如果全局剪贴板有数据且本地未激活，则注入全局数据
-                    if (!clipboardMgr.isActive() && globalClipboardParts != null && !globalClipboardParts.isEmpty()) {
+                    if (globalClipboardParts != null && !globalClipboardParts.isEmpty()) {
                         computeLayout();
-                        clipboardMgr.setExternalClipboard(globalClipboardParts, globalClipMinX, globalClipMaxY);
+                        int[] grid = screenToGrid(e.getX(), e.getY());
+                        // 鼠标位置对应的绝对坐标
+                        int targetAbsX = layoutMinX + grid[0];
+                        int targetAbsY = layoutMaxY - grid[1];
+                        undoRedoMgr.saveState(parts);
+                        // 按绝对坐标偏移粘贴
+                        for (core.Part p : globalClipboardParts) {
+                            int offsetX = p.x - globalClipAnchorX;
+                            int offsetY = p.y - globalClipAnchorY;
+                            parts.add(new core.Part(p.id, p.skin,
+                                    targetAbsX + offsetX,
+                                    targetAbsY + offsetY,
+                                    p.orientation, p.flipped));
+                        }
+                        crossViewPreviewParts = null;
+                        if (clipboardMgr.isActive()) clipboardMgr.cancel();
+                        updateFrameTitle();
+                        repaint();
+                        return;
                     }
 
+                    // 本地粘贴（同视图 clipboardMgr）
                     if (clipboardMgr.isActive()) {
                         computeLayout();
                         int[] grid = screenToGrid(e.getX(), e.getY());
@@ -540,18 +579,22 @@ public class PartCanvas extends JPanel {
                     }
                 }
 
-                if (clipboardMgr.isActive() && SwingUtilities.isLeftMouseButton(e)) {
-                    computeLayout();
-                    int[] grid = screenToGrid(e.getX(), e.getY());
-                    undoRedoMgr.saveState(parts);
-                    clipboardMgr.paste(parts, grid[0], grid[1]);
-                    clipboardMgr.cancel();
-                    updateFrameTitle();
-                    repaint();
-                    return;
-                }
-
+                // ===== 右键：取消跨视图预览 / 取消本地剪贴板 / 开始框选 =====
                 if (SwingUtilities.isRightMouseButton(e)) {
+                    // 如果存在跨视图预览，取消预览
+                    if (crossViewPreviewParts != null) {
+                        crossViewPreviewParts = null;
+                        repaint();
+                        return;
+                    }
+                    // 如果 clipboardMgr 处于活跃状态，取消它并清除选择
+                    if (clipboardMgr.isActive()) {
+                        clipboardMgr.cancel();
+                        selectionMgr.clearSelection();
+                        repaint();
+                        return;
+                    }
+                    // 否则开始框选
                     selectionMgr.startDrag(e.getPoint());
                     repaint();
                 }
@@ -567,11 +610,30 @@ public class PartCanvas extends JPanel {
 
             @Override
             public void mouseMoved(MouseEvent e) {
-                // 跨视图全局剪贴板注入：鼠标移动时激活预览
-                if (!clipboardMgr.isActive() && globalClipboardParts != null && !globalClipboardParts.isEmpty()) {
+                // ===== 跨视图预览：直接用绝对坐标计算跟随鼠标的预览部件 =====
+                if (globalClipboardParts != null && !globalClipboardParts.isEmpty() && !clipboardMgr.isActive()) {
                     computeLayout();
-                    clipboardMgr.setExternalClipboard(globalClipboardParts, globalClipMinX, globalClipMaxY);
+                    int[] grid = screenToGrid(e.getX(), e.getY());
+                    int targetAbsX = layoutMinX + grid[0];
+                    int targetAbsY = layoutMaxY - grid[1];
+                    crossViewPreviewParts = new ArrayList<>();
+                    for (core.Part p : globalClipboardParts) {
+                        int offsetX = p.x - globalClipAnchorX;
+                        int offsetY = p.y - globalClipAnchorY;
+                        crossViewPreviewParts.add(new core.Part(p.id, p.skin,
+                                targetAbsX + offsetX,
+                                targetAbsY + offsetY,
+                                p.orientation, p.flipped));
+                    }
+                    repaint();
+                } else {
+                    // 如果没有全局剪贴板，清除跨视图预览
+                    if (crossViewPreviewParts != null) {
+                        crossViewPreviewParts = null;
+                        repaint();
+                    }
                 }
+
                 if (clipboardMgr.isActive()) {
                     computeLayout();
                     int[] grid = screenToGrid(e.getX(), e.getY());
@@ -668,9 +730,15 @@ public class PartCanvas extends JPanel {
                 if (selected != null && !selected.isEmpty()) {
                     computeLayout();
                     clipboardMgr.startClipboard(selected, layoutMinX, layoutMaxY);
+                    // 设置全局剪贴板：记录选中部件中最左上角部件的绝对坐标作为锚点
+                    int absMinX = Integer.MAX_VALUE, absMaxY = Integer.MIN_VALUE;
+                    for (core.Part p : selected) {
+                        if (p.x < absMinX) absMinX = p.x;
+                        if (p.y > absMaxY) absMaxY = p.y;
+                    }
                     globalClipboardParts = new ArrayList<>(selected);
-                    globalClipMinX = layoutMinX;
-                    globalClipMaxY = layoutMaxY;
+                    globalClipAnchorX = absMinX;
+                    globalClipAnchorY = absMaxY;
                     selectionMgr.clearSelection();
                     repaint();
                 }
