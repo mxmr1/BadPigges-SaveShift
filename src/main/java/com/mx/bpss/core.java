@@ -1,3 +1,5 @@
+package com.mx.bpss;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,24 +13,24 @@ public class core {
  * 静态内部类Part，用于表示游戏中的一个部件
  * 包含部件的各种属性如ID、外观、位置、朝向和翻转状态等
  */
-    static class Part {
-        int id;                // 部件的唯一标识符
-        int skin;              // 部件的皮肤/外观标识
-        int x;                 // 部件在x轴上的位置坐标
-        int y;                 // 部件在y轴上的位置坐标
-        int orientation;       // 部件的朝向角度
-        int flipped;           // 部件是否翻转的标志（0表示未翻转，非0表示翻转）
+    public static class Part {
+        public int id;                // 部件的唯一标识符
+        public int skin;              // 部件的皮肤/外观标识
+        public int x;                 // 部件在x轴上的位置坐标
+        public int y;                 // 部件在y轴上的位置坐标
+        public int orientation;       // 部件的朝向角度
+        public int flipped;           // 部件是否翻转的标志（0表示未翻转，非0表示翻转）
 
-/**
- * 构造函数，用于创建Part对象
- * @param id 部件的唯一标识符
- * @param skin 部件的皮肤/外观标识
- * @param x 部件在x轴上的位置坐标
- * @param y 部件在y轴上的位置坐标
- * @param orientation 部件的朝向角度
- * @param flipped 部件是否翻转的标志（0表示未翻转，非0表示翻转）
- */
-        Part(int id, int skin, int x, int y, int orientation, int flipped) {
+        /**
+        * 构造函数，用于创建Part对象
+        * @param id 部件的唯一标识符
+        * @param skin 部件的皮肤/外观标识
+        * @param x 部件在x轴上的位置坐标
+        * @param y 部件在y轴上的位置坐标
+        * @param orientation 部件的朝向角度
+        * @param flipped 部件是否翻转的标志（0表示未翻转，非0表示翻转）
+        */
+        public Part(int id, int skin, int x, int y, int orientation, int flipped) {
             this.id = id;          // 初始化部件ID
             this.skin = skin;      // 初始化部件皮肤
             this.x = x;            // 初始化x坐标

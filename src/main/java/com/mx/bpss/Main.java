@@ -1,3 +1,6 @@
+package com.mx.bpss;
+
+import com.mx.bpss.ui.SavePreview;
 import javax.swing.*;
 
 
@@ -9,9 +12,7 @@ public class Main {
             e.printStackTrace();
         }
 
-        SwingUtilities.invokeLater(() -> {
-            new SavePreview();
-        });
+        SwingUtilities.invokeLater(SavePreview::new);
     }
 }
 
