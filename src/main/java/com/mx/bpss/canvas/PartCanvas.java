@@ -546,11 +546,9 @@ public class PartCanvas extends JPanel {
                     if (globalClipboardParts != null && !globalClipboardParts.isEmpty()) {
                         computeLayout();
                         int[] grid = screenToGrid(e.getX(), e.getY());
-                        // 鼠标位置对应的绝对坐标
                         int targetAbsX = layoutMinX + grid[0];
                         int targetAbsY = layoutMaxY - grid[1];
                         undoRedoMgr.saveState(parts);
-                        // 按绝对坐标偏移粘贴
                         for (core.Part p : globalClipboardParts) {
                             int offsetX = p.x - globalClipAnchorX;
                             int offsetY = p.y - globalClipAnchorY;
@@ -559,7 +557,7 @@ public class PartCanvas extends JPanel {
                                     targetAbsY + offsetY,
                                     p.orientation, p.flipped));
                         }
-                        crossViewPreviewParts = null;
+                        // 粘贴后清除全局剪贴板，防止重复粘贴和鼠标移动重新生成预览
                         if (clipboardMgr.isActive()) clipboardMgr.cancel();
                         updateFrameTitle();
                         repaint();
@@ -579,15 +577,16 @@ public class PartCanvas extends JPanel {
                     }
                 }
 
-                // ===== 右键：取消跨视图预览 / 取消本地剪贴板 / 开始框选 =====
+                                // ===== 右键：取消跨视图预览 / 取消本地剪贴板 / 开始框选 =====
                 if (SwingUtilities.isRightMouseButton(e)) {
-                    // 如果存在跨视图预览，取消预览
+                    // 如果存在跨视图预览，取消预览并清除全局剪贴板
                     if (crossViewPreviewParts != null) {
                         crossViewPreviewParts = null;
+                        globalClipboardParts = null;
                         repaint();
                         return;
                     }
-                    // 如果 clipboardMgr 处于活跃状态，取消它并清除选择
+                    // 如果 clipboardMgr 处于活跃状态，取消它并清除选中
                     if (clipboardMgr.isActive()) {
                         clipboardMgr.cancel();
                         selectionMgr.clearSelection();
@@ -641,7 +640,7 @@ public class PartCanvas extends JPanel {
                     repaint();
                 }
                 // 惯性放大时更新缩放原点
-                if (zoomCtrl.isZoomingIn() && panCtrl.isMoving() == false) {
+                if (zoomCtrl.isZoomingIn() && !panCtrl.isMoving()) {
                     // 由于统一 Timer 持续运行，鼠标移动时更新原点的世界坐标
                     double currentCellSize = Math.max(1, ZoomController.BASE_UNIT_SIZE * zoomCtrl.getScale());
                     double worldX = (e.getX() - (baseOffsetX + panX)) / currentCellSize;
@@ -679,13 +678,35 @@ public class PartCanvas extends JPanel {
         InputMap inputMap = getInputMap(JComponent.WHEN_FOCUSED);
         ActionMap actionMap = getActionMap();
 
-        // X 键镜像剪贴板
+        // X 键：翻转选中部件 / 翻转整个存档
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, 0), "mirrorClipboard");
         actionMap.put("mirrorClipboard", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                // 如果有活跃的剪贴板，镜像剪贴板内容
                 if (clipboardMgr.isActive()) {
                     clipboardMgr.mirror();
+                    repaint();
+                    return;
+                }
+
+                // 检查是否有选中的部件
+                List<core.Part> selected = selectionMgr.getSelectedParts();
+                if (selected != null && !selected.isEmpty()) {
+                    undoRedoMgr.saveState(parts);
+                    core.mirrorPartsX(selected);
+                    //selectionMgr.clearSelection();
+                    updateFrameTitle();
+                    repaint();
+                    return;
+                }
+
+                // 没有选中任何部件，翻转整个存档
+                if (!parts.isEmpty()) {
+                    undoRedoMgr.saveState(parts);
+                    core.mirrorPartsX(parts);
+                    autoFitView();
+                    updateFrameTitle();
                     repaint();
                 }
             }
