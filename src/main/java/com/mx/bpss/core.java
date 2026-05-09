@@ -100,7 +100,7 @@ public class core {
 
     // 公共方法，供 GUI 调用
     public static void convertSave(String inputFile, String outputDir) throws IOException {
-        // 1. 备份原文件到输出文件夹（可选，根据需求决定是否备份）
+        /// 1. 备份原文件到输出文件夹（可选，根据需求决定是否备份）
         backupFile(inputFile, outputDir);
 
         // 2. 处理转换
