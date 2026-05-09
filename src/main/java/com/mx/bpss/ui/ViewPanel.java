@@ -32,6 +32,9 @@ public class ViewPanel extends JPanel {
         JButton btnSave = createButton("保存存档");
         btnSave.addActionListener(e -> canvas.saveCurrent());
 
+        JButton btnDelete = createButton("删除");
+        btnDelete.addActionListener(e -> canvas.deleteSelectedParts());
+
         JButton btnClose = createButton("关闭视图");
         btnClose.addActionListener(e -> onCloseCallback.run());
 
@@ -40,6 +43,7 @@ public class ViewPanel extends JPanel {
 
         topPanel.add(btnFlip);
         topPanel.add(btnSave);
+        topPanel.add(btnDelete);
         topPanel.add(btnClose);
         topPanel.add(btnSelect);
 

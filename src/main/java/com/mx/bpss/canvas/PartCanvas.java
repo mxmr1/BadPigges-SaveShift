@@ -218,7 +218,16 @@ public class PartCanvas extends JPanel {
         clipboardMgr.cancel();
     }
 
-    public List<core.Part> getParts() { return parts; }
+    public void deleteSelectedParts() {
+    List<core.Part> selected = selectionMgr.getSelectedParts();
+    if (selected == null || selected.isEmpty()) return;
+    undoRedoMgr.saveState(parts);           // 记录撤销
+    parts.removeAll(selected);               // 删除选中部件
+    if (clipboardMgr.isActive()) clipboardMgr.cancel();
+    selectionMgr.clearSelection();           // 清除选中状态
+    updateFrameTitle();
+    repaint();
+}
 
     // ========== 辅助方法 ==========
 
