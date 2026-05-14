@@ -1,6 +1,6 @@
 package com.mx.bpss.canvas;
 
-import com.mx.bpss.core;
+import com.mx.bpss.model.Part;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ public class SelectionManager {
     private Point dragStart;
     private Point dragEnd;
     private boolean isDragging = false;
-    private List<core.Part> selectedParts = new ArrayList<>();
+    private List<Part> selectedParts = new ArrayList<>();
 
     private boolean hasSelection = false;
     private int selMinCol = -1, selMaxCol = -1;
@@ -43,7 +43,7 @@ public class SelectionManager {
      * @param parts 所有部件
      * @param layoutInfo 布局信息
      */
-    public void endDrag(List<core.Part> parts, LayoutInfo layoutInfo) {
+    public void endDrag(List<Part> parts, LayoutInfo layoutInfo) {
         if (!isDragging || dragStart == null || dragEnd == null) {
             clearSelection();
             isDragging = false;
@@ -69,7 +69,7 @@ public class SelectionManager {
         hasSelection = true;
         selectedParts.clear();
 
-        for (core.Part p : parts) {
+        for (Part p : parts) {
             int col = p.x - layoutInfo.getMinX();
             int row = layoutInfo.getMaxY() - p.y;
             if (col >= selMinCol && col <= selMaxCol && row >= selMinRow && row <= selMaxRow) {
@@ -93,7 +93,7 @@ public class SelectionManager {
         selMinCol = selMaxCol = selMinRow = selMaxRow = -1;
     }
 
-    public List<core.Part> getSelectedParts() {
+    public List<Part> getSelectedParts() {
         return selectedParts;
     }
 

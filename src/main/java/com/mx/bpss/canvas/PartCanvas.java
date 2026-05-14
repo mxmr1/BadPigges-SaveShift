@@ -1,6 +1,7 @@
 package com.mx.bpss.canvas;
 
-import com.mx.bpss.core;
+import com.mx.bpss.model.Part;
+import com.mx.bpss.model.SaveFile;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -24,7 +25,7 @@ import java.util.function.Consumer;
  */
 public class PartCanvas extends JPanel {
 
-    private List<core.Part> parts = new ArrayList<>();
+    private List<Part> parts = new ArrayList<>();
     private String currentFilePath = "";
     private String backupDirPath = "";
     private Consumer<String> titleUpdater;
@@ -54,16 +55,21 @@ public class PartCanvas extends JPanel {
     private static final Map<String, BufferedImage> imageCache = new HashMap<>();
 
     // ========== 跨视图全局剪贴板（静态）==========
-    private static List<core.Part> globalClipboardParts = null;
+    private static List<Part> globalClipboardParts = null;
     private static int globalClipAnchorX = 0;
     private static int globalClipAnchorY = 0;
 
-    public static List<core.Part> getGlobalClipboard() { return globalClipboardParts; }
+    public static List<Part> getGlobalClipboard() { return globalClipboardParts; }
     public static int getGlobalClipAnchorX() { return globalClipAnchorX; }
     public static int getGlobalClipAnchorY() { return globalClipAnchorY; }
 
     // ========== 跨视图预览（用于在目标视图中跟随鼠标显示）==========
-    private List<core.Part> crossViewPreviewParts = null;
+    private List<Part> crossViewPreviewParts = null;
+
+    // ========== 框选拖拽移动 ==========
+    private boolean isMoving = false;
+    private Point moveStartPoint;
+    private Map<Part, int[]> moveOriginalCoords;
 
     public PartCanvas(Consumer<String> titleUpdater, Runnable fileChangedCallback) {
         this.titleUpdater = titleUpdater;
@@ -103,7 +109,7 @@ public class PartCanvas extends JPanel {
                 return false;
             }
 
-            List<core.Part> newParts = core.readPartsFromFile(filePath);
+            List<Part> newParts = SaveFile.readPartsFromFile(filePath);
             if (newParts == null || newParts.isEmpty()) {
                 showError("文件为空或没有有效数据！");
                 return false;
@@ -131,16 +137,14 @@ public class PartCanvas extends JPanel {
         }
         String backupDir = backupDirPath.isEmpty() ? new File(currentFilePath).getParent() : backupDirPath;
         try {
-            core.convertSave(currentFilePath, backupDir);
-            String outputPath = new File(backupDir, new File(currentFilePath).getName()).getPath();
-            List<core.Part> convertedParts = core.readPartsFromFile(outputPath);
-            if (!convertedParts.isEmpty()) {
-                parts.clear();
-                parts.addAll(convertedParts);
-                updateFrameTitle();
-                autoFitView();
-                repaint();
-            }
+            // 1. 备份原文件
+            SaveFile.backupFile(currentFilePath, backupDir);
+            // 2. 对当前内存中的部件列表执行完整镜像转换
+            SaveFile.mirrorPartsFull(parts);
+            // 3. 刷新显示
+            updateFrameTitle();
+            autoFitView();
+            repaint();
             showInfo("存档方向转换完成！\n备份位置: " + backupDir);
             if (fileChangedCallback != null) fileChangedCallback.run();
         } catch (IOException ex) {
@@ -155,8 +159,8 @@ public class PartCanvas extends JPanel {
         }
         String backupDir = backupDirPath.isEmpty() ? new File(currentFilePath).getParent() : backupDirPath;
         try {
-            core.backupFile(currentFilePath, backupDir);
-            core.writePartsToFile(currentFilePath, parts);
+            SaveFile.backupFile(currentFilePath, backupDir);
+            SaveFile.writePartsToFile(currentFilePath, parts);
             showInfo("备份并保存完成！\n备份位置: " + backupDir);
             if (fileChangedCallback != null) fileChangedCallback.run();
         } catch (IOException ex) {
@@ -172,7 +176,7 @@ public class PartCanvas extends JPanel {
 
         int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
         int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
-        for (core.Part p : parts) {
+        for (Part p : parts) {
             if (p.x < minX) minX = p.x;
             if (p.x > maxX) maxX = p.x;
             if (p.y < minY) minY = p.y;
@@ -219,7 +223,7 @@ public class PartCanvas extends JPanel {
     }
 
     public void deleteSelectedParts() {
-    List<core.Part> selected = selectionMgr.getSelectedParts();
+    List<Part> selected = selectionMgr.getSelectedParts();
     if (selected == null || selected.isEmpty()) return;
     undoRedoMgr.saveState(parts);           // 记录撤销
     parts.removeAll(selected);               // 删除选中部件
@@ -305,7 +309,7 @@ public class PartCanvas extends JPanel {
         double cellSize = layoutCellSize;
 
         // 绘制所有部件
-        for (core.Part p : parts) {
+        for (Part p : parts) {
             int col = p.x - layoutMinX;
             int row = layoutMaxY - p.y;
             int x0 = (int) Math.round(offsetX + col * cellSize);
@@ -325,7 +329,7 @@ public class PartCanvas extends JPanel {
             Composite oldComposite = g2.getComposite();
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
 
-            for (core.Part p : clipboardMgr.getPreviewParts()) {
+            for (Part p : clipboardMgr.getPreviewParts()) {
                 int col = p.x - layoutMinX;
                 int row = layoutMaxY - p.y;
                 int x0 = (int) Math.round(offsetX + col * cellSize);
@@ -348,7 +352,7 @@ public class PartCanvas extends JPanel {
             Composite oldComposite = g2.getComposite();
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
 
-            for (core.Part p : crossViewPreviewParts) {
+            for (Part p : crossViewPreviewParts) {
                 int col = p.x - layoutMinX;
                 int row = layoutMaxY - p.y;
                 int x0 = (int) Math.round(offsetX + col * cellSize);
@@ -368,7 +372,7 @@ public class PartCanvas extends JPanel {
 
         // 绘制选中部件高亮
         g2.setColor(new Color(0, 200, 255, 80));
-        for (core.Part p : selectionMgr.getSelectedParts()) {
+        for (Part p : selectionMgr.getSelectedParts()) {
             int col = p.x - layoutMinX;
             int row = layoutMaxY - p.y;
             int x0 = (int) Math.round(offsetX + col * cellSize);
@@ -485,7 +489,7 @@ public class PartCanvas extends JPanel {
 
         int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
         int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
-        for (core.Part p : parts) {
+        for (Part p : parts) {
             if (p.x < minX) minX = p.x;
             if (p.x > maxX) maxX = p.x;
             if (p.y < minY) minY = p.y;
@@ -544,6 +548,11 @@ public class PartCanvas extends JPanel {
                 // 打断惯性缩放
                 zoomCtrl.stop();
 
+                // 如果正在移动部件，忽略所有其他点击操作
+                if (isMoving) {
+                    return;
+                }
+
                 // ===== 中键：切换视图（不做注入，只请求焦点） =====
                 if (SwingUtilities.isMiddleMouseButton(e)) {
                     requestFocusInWindow();
@@ -558,10 +567,10 @@ public class PartCanvas extends JPanel {
                         int targetAbsX = layoutMinX + grid[0];
                         int targetAbsY = layoutMaxY - grid[1];
                         undoRedoMgr.saveState(parts);
-                        for (core.Part p : globalClipboardParts) {
+                        for (Part p : globalClipboardParts) {
                             int offsetX = p.x - globalClipAnchorX;
                             int offsetY = p.y - globalClipAnchorY;
-                            parts.add(new core.Part(p.id, p.skin,
+                            parts.add(new Part(p.id, p.skin,
                                     targetAbsX + offsetX,
                                     targetAbsY + offsetY,
                                     p.orientation, p.flipped));
@@ -583,6 +592,31 @@ public class PartCanvas extends JPanel {
                         updateFrameTitle();
                         repaint();
                         return;
+                    }
+
+                    // 框选移动启动：点击选中区域内任意部件，开始拖拽移动
+                    if (selectionMgr.hasSelection()) {
+                        computeLayout();
+                        int[] grid = screenToGrid(e.getX(), e.getY());
+                        int absX = layoutMinX + grid[0];
+                        int absY = layoutMaxY - grid[1];
+                        boolean onSelected = false;
+                        for (Part p : selectionMgr.getSelectedParts()) {
+                            if (p.x == absX && p.y == absY) {
+                                onSelected = true;
+                                break;
+                            }
+                        }
+                        if (onSelected) {
+                            undoRedoMgr.saveState(parts);
+                            isMoving = true;
+                            moveStartPoint = e.getPoint();
+                            moveOriginalCoords = new HashMap<>();
+                            for (Part p : selectionMgr.getSelectedParts()) {
+                                moveOriginalCoords.put(p, new int[]{p.x, p.y});
+                            }
+                            return;
+                        }
                     }
                 }
 
@@ -610,32 +644,48 @@ public class PartCanvas extends JPanel {
 
             @Override
             public void mouseDragged(MouseEvent e) {
+                // 框选移动
+                if (isMoving) {
+                    int dx = e.getX() - moveStartPoint.x;
+                    int dy = e.getY() - moveStartPoint.y;
+                    if (layoutCellSize > 0) {
+                        int gridDx = (int) Math.round(dx / layoutCellSize);
+                        int gridDy = (int) Math.round(dy / layoutCellSize);
+                        for (Part p : selectionMgr.getSelectedParts()) {
+                            int[] orig = moveOriginalCoords.get(p);
+                            if (orig != null) {
+                                p.x = orig[0] + gridDx;
+                                p.y = orig[1] - gridDy;
+                            }
+                        }
+                        repaint();
+                    }
+                    return;
+                }
+
+                // 框选拖拽
                 if (selectionMgr.isDragging() && SwingUtilities.isRightMouseButton(e)) {
                     selectionMgr.updateDrag(e.getPoint());
                     repaint();
                 }
-            }
 
-            @Override
-            public void mouseMoved(MouseEvent e) {
-                // ===== 跨视图预览：直接用绝对坐标计算跟随鼠标的预览部件 =====
+                // 跨视图预览
                 if (globalClipboardParts != null && !globalClipboardParts.isEmpty() && !clipboardMgr.isActive()) {
                     computeLayout();
                     int[] grid = screenToGrid(e.getX(), e.getY());
                     int targetAbsX = layoutMinX + grid[0];
                     int targetAbsY = layoutMaxY - grid[1];
                     crossViewPreviewParts = new ArrayList<>();
-                    for (core.Part p : globalClipboardParts) {
+                    for (Part p : globalClipboardParts) {
                         int offsetX = p.x - globalClipAnchorX;
                         int offsetY = p.y - globalClipAnchorY;
-                        crossViewPreviewParts.add(new core.Part(p.id, p.skin,
+                        crossViewPreviewParts.add(new Part(p.id, p.skin,
                                 targetAbsX + offsetX,
                                 targetAbsY + offsetY,
                                 p.orientation, p.flipped));
                     }
                     repaint();
                 } else {
-                    // 如果没有全局剪贴板，清除跨视图预览
                     if (crossViewPreviewParts != null) {
                         crossViewPreviewParts = null;
                         repaint();
@@ -648,9 +698,49 @@ public class PartCanvas extends JPanel {
                     clipboardMgr.setMouseGrid(grid[0], grid[1]);
                     repaint();
                 }
-                // 惯性放大时更新缩放原点
+
                 if (zoomCtrl.isZoomingIn() && !panCtrl.isMoving()) {
-                    // 由于统一 Timer 持续运行，鼠标移动时更新原点的世界坐标
+                    double currentCellSize = Math.max(1, ZoomController.BASE_UNIT_SIZE * zoomCtrl.getScale());
+                    double worldX = (e.getX() - (baseOffsetX + panX)) / currentCellSize;
+                    double worldY = (e.getY() - (baseOffsetY + panY)) / currentCellSize;
+                    zoomCtrl.updateZoomOrigin(e.getX(), e.getY(), panX, panY, baseOffsetX, baseOffsetY);
+                    panX = (int) Math.round(e.getX() - worldX * currentCellSize - baseOffsetX);
+                    panY = (int) Math.round(e.getY() - worldY * currentCellSize - baseOffsetY);
+                }
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                if (globalClipboardParts != null && !globalClipboardParts.isEmpty() && !clipboardMgr.isActive()) {
+                    computeLayout();
+                    int[] grid = screenToGrid(e.getX(), e.getY());
+                    int targetAbsX = layoutMinX + grid[0];
+                    int targetAbsY = layoutMaxY - grid[1];
+                    crossViewPreviewParts = new ArrayList<>();
+                    for (Part p : globalClipboardParts) {
+                        int offsetX = p.x - globalClipAnchorX;
+                        int offsetY = p.y - globalClipAnchorY;
+                        crossViewPreviewParts.add(new Part(p.id, p.skin,
+                                targetAbsX + offsetX,
+                                targetAbsY + offsetY,
+                                p.orientation, p.flipped));
+                    }
+                    repaint();
+                } else {
+                    if (crossViewPreviewParts != null) {
+                        crossViewPreviewParts = null;
+                        repaint();
+                    }
+                }
+
+                if (clipboardMgr.isActive()) {
+                    computeLayout();
+                    int[] grid = screenToGrid(e.getX(), e.getY());
+                    clipboardMgr.setMouseGrid(grid[0], grid[1]);
+                    repaint();
+                }
+
+                if (zoomCtrl.isZoomingIn() && !panCtrl.isMoving()) {
                     double currentCellSize = Math.max(1, ZoomController.BASE_UNIT_SIZE * zoomCtrl.getScale());
                     double worldX = (e.getX() - (baseOffsetX + panX)) / currentCellSize;
                     double worldY = (e.getY() - (baseOffsetY + panY)) / currentCellSize;
@@ -662,6 +752,15 @@ public class PartCanvas extends JPanel {
 
             @Override
             public void mouseReleased(MouseEvent e) {
+                // 移动结束
+                if (isMoving) {
+                    isMoving = false;
+                    moveOriginalCoords = null;
+                    updateFrameTitle();
+                    return;
+                }
+
+                // 框选结束
                 if (selectionMgr.isDragging() && SwingUtilities.isRightMouseButton(e)) {
                     computeLayout();
                     SelectionManager.LayoutInfo layoutInfo = new SelectionManager.LayoutInfo(
@@ -700,10 +799,10 @@ public class PartCanvas extends JPanel {
                 }
 
                 // 检查是否有选中的部件
-                List<core.Part> selected = selectionMgr.getSelectedParts();
+                List<Part> selected = selectionMgr.getSelectedParts();
                 if (selected != null && !selected.isEmpty()) {
                     undoRedoMgr.saveState(parts);
-                    core.mirrorPartsX(selected);
+                    SaveFile.mirrorPartsFull(selected);
                     //selectionMgr.clearSelection();
                     updateFrameTitle();
                     repaint();
@@ -713,7 +812,7 @@ public class PartCanvas extends JPanel {
                 // 没有选中任何部件，翻转整个存档
                 if (!parts.isEmpty()) {
                     undoRedoMgr.saveState(parts);
-                    core.mirrorPartsX(parts);
+                    SaveFile.mirrorPartsFull(parts);
                     autoFitView();
                     updateFrameTitle();
                     repaint();
@@ -756,13 +855,13 @@ public class PartCanvas extends JPanel {
         actionMap.put("copy", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                List<core.Part> selected = selectionMgr.getSelectedParts();
+                List<Part> selected = selectionMgr.getSelectedParts();
                 if (selected != null && !selected.isEmpty()) {
                     computeLayout();
                     clipboardMgr.startClipboard(selected, layoutMinX, layoutMaxY);
                     // 设置全局剪贴板：记录选中部件中最左上角部件的绝对坐标作为锚点
                     int absMinX = Integer.MAX_VALUE, absMaxY = Integer.MIN_VALUE;
-                    for (core.Part p : selected) {
+                    for (Part p : selected) {
                         if (p.x < absMinX) absMinX = p.x;
                         if (p.y > absMaxY) absMaxY = p.y;
                     }
@@ -780,7 +879,7 @@ public class PartCanvas extends JPanel {
         actionMap.put("deleteSelected", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                List<core.Part> selected = selectionMgr.getSelectedParts();
+                List<Part> selected = selectionMgr.getSelectedParts();
                 if (selected == null || selected.isEmpty()) return;
                 undoRedoMgr.saveState(parts);
                 parts.removeAll(selected);

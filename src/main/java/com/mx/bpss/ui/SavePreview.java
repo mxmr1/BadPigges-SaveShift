@@ -17,6 +17,7 @@ public class SavePreview {
     public SavePreview() {
         frame = new JFrame("存档预览 - 多视图");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(960, 540); // 取消最大化时恢复此大小
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         multiViewContainer = new JPanel(new BorderLayout());
