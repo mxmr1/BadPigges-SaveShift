@@ -73,6 +73,10 @@ public class PartCanvas extends JPanel {
     private int moveStartGridY;
     private Map<Part, int[]> moveOriginalCoords;
 
+    // 移动期间锁定布局边界，防止拖拽改变 layoutMinX/layoutMaxY
+    private boolean layoutLocked = false;
+    private int lockedMinX, lockedMaxY;
+
     public PartCanvas(Consumer<String> titleUpdater, Runnable fileChangedCallback) {
         this.titleUpdater = titleUpdater;
         this.fileChangedCallback = fileChangedCallback;
@@ -112,7 +116,7 @@ public class PartCanvas extends JPanel {
             }
 
             List<Part> newParts = SaveFile.readPartsFromFile(filePath);
-            if (newParts == null || newParts.isEmpty()) {
+            if (newParts.isEmpty()) {
                 showError("文件为空或没有有效数据！");
                 return false;
             }
@@ -222,6 +226,7 @@ public class PartCanvas extends JPanel {
         baseOffsetX = 0; baseOffsetY = 0;
         selectionMgr.clearSelection();
         clipboardMgr.cancel();
+        layoutLocked = false;
     }
 
     public void deleteSelectedParts() {
@@ -489,18 +494,24 @@ public class PartCanvas extends JPanel {
             return;
         }
 
-        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
-        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
-        for (Part p : parts) {
-            if (p.x < minX) minX = p.x;
-            if (p.x > maxX) maxX = p.x;
-            if (p.y < minY) minY = p.y;
-            if (p.y > maxY) maxY = p.y;
+        if (!layoutLocked) {
+            // 非拖拽时正常计算布局边界
+            int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
+            int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
+            for (Part p : parts) {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            }
+            layoutMinX = minX; layoutMinY = minY; layoutMaxY = maxY;
+            layoutCols = maxX - minX + 1;
+            layoutRows = maxY - minY + 1;
+        } else {
+            // 拖拽时使用锁定边界，保证 screenToGrid 的映射关系稳定
+            layoutMinX = lockedMinX;
+            layoutMaxY = lockedMaxY;
         }
-
-        layoutMinX = minX; layoutMinY = minY; layoutMaxY = maxY;
-        layoutCols = maxX - minX + 1;
-        layoutRows = maxY - minY + 1;
         layoutCellSize = Math.max(1, ZoomController.BASE_UNIT_SIZE * zoomCtrl.getScale());
         layoutOffsetX = baseOffsetX + panX;
         layoutOffsetY = baseOffsetY + panY;
@@ -612,6 +623,10 @@ public class PartCanvas extends JPanel {
                         if (onSelected) {
                             undoRedoMgr.saveState(parts);
                             isMoving = true;
+                            // 锁定布局边界，防止拖拽时 layoutMinX/layoutMaxY 变化
+                            layoutLocked = true;
+                            lockedMinX = layoutMinX;
+                            lockedMaxY = layoutMaxY;
                             moveStartPoint = e.getPoint();
                             moveStartGridX = grid[0];
                             moveStartGridY = grid[1];
@@ -651,15 +666,13 @@ public class PartCanvas extends JPanel {
                 if (isMoving) {
                     computeLayout();
                     int[] grid = screenToGrid(e.getX(), e.getY());
-                    if (grid != null) {
-                        int gridDx = grid[0] - moveStartGridX;
-                        int gridDy = grid[1] - moveStartGridY;
-                        for (Map.Entry<Part, int[]> entry : moveOriginalCoords.entrySet()) {
-                            entry.getKey().x = entry.getValue()[0] + gridDx;
-                            entry.getKey().y = entry.getValue()[1] - gridDy;
-                        }
-                        repaint();
+                    int gridDx = grid[0] - moveStartGridX;
+                    int gridDy = grid[1] - moveStartGridY;
+                    for (Map.Entry<Part, int[]> entry : moveOriginalCoords.entrySet()) {
+                        entry.getKey().x = entry.getValue()[0] + gridDx;
+                        entry.getKey().y = entry.getValue()[1] - gridDy;
                     }
+                    repaint();
                     return;
                 }
 
@@ -748,6 +761,7 @@ public class PartCanvas extends JPanel {
                     panX = (int) Math.round(e.getX() - worldX * currentCellSize - baseOffsetX);
                     panY = (int) Math.round(e.getY() - worldY * currentCellSize - baseOffsetY);
                 }
+                    layoutLocked = false;  // 解锁布局边界
             }
 
             @Override
@@ -756,6 +770,7 @@ public class PartCanvas extends JPanel {
                 if (isMoving) {
                     isMoving = false;
                     moveOriginalCoords = null;
+                    layoutLocked = false;  // 解锁布局边界
                     selectionMgr.clearSelection();
                     updateFrameTitle();
                     repaint();
@@ -965,7 +980,6 @@ public class PartCanvas extends JPanel {
         if (mousePos == null || moveOriginalCoords == null) return;
         computeLayout();
         int[] grid = screenToGrid(mousePos.x, mousePos.y);
-        if (grid == null) return;
         int gridDx = grid[0] - moveStartGridX;
         int gridDy = grid[1] - moveStartGridY;
         for (Map.Entry<Part, int[]> entry : moveOriginalCoords.entrySet()) {
@@ -982,7 +996,6 @@ public class PartCanvas extends JPanel {
         if (mousePos == null) return;
         computeLayout();
         int[] grid = screenToGrid(mousePos.x, mousePos.y);
-        if (grid == null) return;
         int absX = layoutMinX + grid[0];
         int absY = layoutMaxY - grid[1];
 
