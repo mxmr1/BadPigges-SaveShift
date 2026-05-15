@@ -25,11 +25,11 @@ import java.util.function.Consumer;
  */
 public class PartCanvas extends JPanel {
 
-    private List<Part> parts = new ArrayList<>();
+    private final List<Part> parts = new ArrayList<>();
     private String currentFilePath = "";
     private String backupDirPath = "";
-    private Consumer<String> titleUpdater;
-    private Runnable fileChangedCallback;
+    private final Consumer<String> titleUpdater;
+    private final Runnable fileChangedCallback;
 
     // 布局变量
     private int layoutMinX, layoutMinY, layoutMaxY;
@@ -69,6 +69,8 @@ public class PartCanvas extends JPanel {
     // ========== 框选拖拽移动 ==========
     private boolean isMoving = false;
     private Point moveStartPoint;
+    private int moveStartGridX;
+    private int moveStartGridY;
     private Map<Part, int[]> moveOriginalCoords;
 
     public PartCanvas(Consumer<String> titleUpdater, Runnable fileChangedCallback) {
@@ -611,10 +613,16 @@ public class PartCanvas extends JPanel {
                             undoRedoMgr.saveState(parts);
                             isMoving = true;
                             moveStartPoint = e.getPoint();
+                            moveStartGridX = grid[0];
+                            moveStartGridY = grid[1];
                             moveOriginalCoords = new HashMap<>();
+                            // 先记录选中部件的引用和原始坐标（必须在 clearSelection 之前）
                             for (Part p : selectionMgr.getSelectedParts()) {
                                 moveOriginalCoords.put(p, new int[]{p.x, p.y});
                             }
+                            // 再清除选中状态，隐藏框选范围框和高亮
+                            selectionMgr.clearSelection();
+                            repaint();
                             return;
                         }
                     }
@@ -622,15 +630,10 @@ public class PartCanvas extends JPanel {
 
                                 // ===== 右键：取消跨视图预览 / 取消本地剪贴板 / 开始框选 =====
                 if (SwingUtilities.isRightMouseButton(e)) {
-                    // 如果存在跨视图预览，取消预览并清除全局剪贴板
-                    if (crossViewPreviewParts != null) {
+                    // 一次性清除所有临时状态：跨视图预览、全局剪贴板、本地剪贴板、选中状态
+                    if (crossViewPreviewParts != null || clipboardMgr.isActive() || globalClipboardParts != null) {
                         crossViewPreviewParts = null;
                         globalClipboardParts = null;
-                        repaint();
-                        return;
-                    }
-                    // 如果 clipboardMgr 处于活跃状态，取消它并清除选中
-                    if (clipboardMgr.isActive()) {
                         clipboardMgr.cancel();
                         selectionMgr.clearSelection();
                         repaint();
@@ -646,17 +649,14 @@ public class PartCanvas extends JPanel {
             public void mouseDragged(MouseEvent e) {
                 // 框选移动
                 if (isMoving) {
-                    int dx = e.getX() - moveStartPoint.x;
-                    int dy = e.getY() - moveStartPoint.y;
-                    if (layoutCellSize > 0) {
-                        int gridDx = (int) Math.round(dx / layoutCellSize);
-                        int gridDy = (int) Math.round(dy / layoutCellSize);
-                        for (Part p : selectionMgr.getSelectedParts()) {
-                            int[] orig = moveOriginalCoords.get(p);
-                            if (orig != null) {
-                                p.x = orig[0] + gridDx;
-                                p.y = orig[1] - gridDy;
-                            }
+                    computeLayout();
+                    int[] grid = screenToGrid(e.getX(), e.getY());
+                    if (grid != null) {
+                        int gridDx = grid[0] - moveStartGridX;
+                        int gridDy = grid[1] - moveStartGridY;
+                        for (Map.Entry<Part, int[]> entry : moveOriginalCoords.entrySet()) {
+                            entry.getKey().x = entry.getValue()[0] + gridDx;
+                            entry.getKey().y = entry.getValue()[1] - gridDy;
                         }
                         repaint();
                     }
@@ -756,7 +756,9 @@ public class PartCanvas extends JPanel {
                 if (isMoving) {
                     isMoving = false;
                     moveOriginalCoords = null;
+                    selectionMgr.clearSelection();
                     updateFrameTitle();
+                    repaint();
                     return;
                 }
 
@@ -935,13 +937,73 @@ public class PartCanvas extends JPanel {
         if (panCtrl.isMoving()) {
             int deltaX = panCtrl.computeDeltaX(getWidth());
             int deltaY = panCtrl.computeDeltaY(getHeight());
-            panX -= deltaX;//此处这么写是正确的
-            panY -= deltaY;//此处这么写是正确的
+            panX -= deltaX;
+            panY -= deltaY;
             needsRepaint = true;
+        }
+
+        // 当视角变化且正在移动部件时，更新部件坐标以匹配鼠标位置
+        if (needsRepaint && isMoving) {
+            updateMovingPartsPosition();
+        }
+
+        // 当视角变化时，更新预览以匹配当前鼠标位置
+        if (needsRepaint) {
+            updatePreviewsForCurrentMouse();
         }
 
         if (needsRepaint) {
             repaint();
+        }
+    }
+
+    /**
+     * 根据当前鼠标位置更新被移动部件的坐标
+     */
+    private void updateMovingPartsPosition() {
+        Point mousePos = getMousePosition();
+        if (mousePos == null || moveOriginalCoords == null) return;
+        computeLayout();
+        int[] grid = screenToGrid(mousePos.x, mousePos.y);
+        if (grid == null) return;
+        int gridDx = grid[0] - moveStartGridX;
+        int gridDy = grid[1] - moveStartGridY;
+        for (Map.Entry<Part, int[]> entry : moveOriginalCoords.entrySet()) {
+            entry.getKey().x = entry.getValue()[0] + gridDx;
+            entry.getKey().y = entry.getValue()[1] - gridDy;
+        }
+    }
+
+    /**
+     * 根据当前鼠标屏幕位置更新跨视图预览和本地剪贴板预览
+     */
+    private void updatePreviewsForCurrentMouse() {
+        Point mousePos = getMousePosition();
+        if (mousePos == null) return;
+        computeLayout();
+        int[] grid = screenToGrid(mousePos.x, mousePos.y);
+        if (grid == null) return;
+        int absX = layoutMinX + grid[0];
+        int absY = layoutMaxY - grid[1];
+
+        // 更新全局剪贴板预览（跨视图预览）
+        if (globalClipboardParts != null && !globalClipboardParts.isEmpty() && !clipboardMgr.isActive()) {
+            crossViewPreviewParts = new ArrayList<>();
+            for (Part p : globalClipboardParts) {
+                int offsetX = p.x - globalClipAnchorX;
+                int offsetY = p.y - globalClipAnchorY;
+                crossViewPreviewParts.add(new Part(p.id, p.skin,
+                        absX + offsetX,
+                        absY + offsetY,
+                        p.orientation, p.flipped));
+            }
+        } else if (crossViewPreviewParts != null) {
+            crossViewPreviewParts = null;
+        }
+
+        // 更新本地剪贴板预览
+        if (clipboardMgr.isActive()) {
+            clipboardMgr.setMouseGrid(grid[0], grid[1]);
         }
     }
 }
